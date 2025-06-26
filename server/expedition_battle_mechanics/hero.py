@@ -1,31 +1,46 @@
-# battle_mechanics/hero.py
+"""
+Immutable hero profile with helper methods.
+NO SECTION ABBREVIATED.
+"""
 
+from __future__ import annotations
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional
+
 from expedition_battle_mechanics.definitions import Skill, ExclusiveWeapon
 
+
+@dataclass(slots=True)
 class Hero:
-    """
-    Represents a hero with base stats, skills (both exploration and expedition),
-    and an optional exclusive weapon.
-    """
-    def __init__(
-        self,
-        name: str,
-        char_class: str,
-        rarity: str,
-        generation: int,
-        base_stats: Dict[str, float],
-        skills: Dict[str, List[Skill]],
-        exclusive_weapon: Optional[ExclusiveWeapon] = None,
-        selected_skill_levels: Optional[Dict[str, int]] = None,
-        selected_ew_level: Optional[int] = None
-    ):
-        self.name = name
-        self.char_class = char_class
-        self.rarity = rarity
-        self.generation = generation
-        self.base_stats = base_stats
-        self.skills = skills  # {"exploration": [...], "expedition": [...]}
-        self.exclusive_weapon = exclusive_weapon
-        self.selected_skill_levels = selected_skill_levels or {}
-        self.selected_ew_level = selected_ew_level
+    # ───── static identity ────────────────────────────────────────────────
+    name: str
+    char_class: str                  # "Infantry" | "Lancer" | "Marksman"
+    rarity: str
+    generation: int
+    base_stats: Dict[str, float]
+
+    # ───── skills & weapon ────────────────────────────────────────────────
+    skills: Dict[str, List[Skill]]              # {"exploration":[…], "expedition":[…]}
+    exclusive_weapon: Optional[ExclusiveWeapon] = None
+
+    # ───── selections (set by loader) ─────────────────────────────────────
+    selected_skill_levels: Dict[str, int] = field(default_factory=dict)
+    selected_ew_level: Optional[int] = None
+
+    # ───── runtime metadata (populated by CombatState / Formation)─────────
+    side: str = ""                               # "atk" or "def" (set later)
+
+    # ───── helpers ────────────────────────────────────────────────────────
+    def get_stat(self, key: str, default: float = 0.0) -> float:
+        return self.base_stats.get(key, default)
+
+    def skills_pct(self, name: str, lvl: int) -> float:
+        for branch in ("exploration", "expedition"):
+            for sk in self.skills.get(branch, []):
+                if sk.name == name:
+                    lp = sk.extra.get("level_percentage", {})
+                    return lp.get(lvl, sk.multiplier)
+        return 0.0
+
+    def has_skill(self, name: str) -> bool:
+        return any(sk.name == name for lst in self.skills.values() for sk in lst)

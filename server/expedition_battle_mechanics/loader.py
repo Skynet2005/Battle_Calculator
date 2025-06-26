@@ -1,78 +1,126 @@
-# battle_mechanics/loader.py
+"""
+hero_from_dict — translate a raw HEROES entry into a Hero instance.
 
-from typing import Dict, Any, Optional
+➤ 2025-06-26 fix:
+    _parse_skill now accepts level_percentage as either
+       • dict {1: 0.06, 2: 0.12, …}
+       • single float 0.75
+"""
+
+from __future__ import annotations
+
+from typing import Dict, Any, Optional, List, Union
+
 from expedition_battle_mechanics.definitions import Skill, ExclusiveWeapon
 from expedition_battle_mechanics.hero import Hero
 
-# This points to the raw hero data:
+# raw data registry
 from hero_data.hero_loader import HEROES
 
-def hero_from_dict(
-    hero_data: Any,
-    skill_levels: Optional[Dict[str, int]] = None,
-    ew_level: Optional[int] = None
-) -> Hero:
+
+# ─────────────────────────────────────────────────────────────────────────────
+# helpers
+# ─────────────────────────────────────────────────────────────────────────────
+def _normalize_level_pct(val: Union[float, Dict[int, float]]) -> Dict[int, float]:
     """
-    Converts a hero dict (or list of dicts) to a Hero object,
-    including both base and exclusive‐weapon skills.
+    Ensure we always return a dict[int,float].
+       0.75         → {1: 0.75}
+       {1:0.06,2:…} → unchanged
     """
-    if isinstance(hero_data, list):
-        hero_dict = hero_data[0]
-    else:
-        hero_dict = hero_data
+    if isinstance(val, dict):
+        return {int(k): float(v) for k, v in val.items()}
+    if val is None:
+        return {}
+    return {1: float(val)}
 
-    name       = hero_dict.get('hero-name')
-    char_class = hero_dict.get('hero-class', '').capitalize()
-    rarity     = hero_dict.get('rarity')
-    generation = hero_dict.get('generation')
-    base_stats = hero_dict.get('base-stats', {})
 
-    # Build skill lists
-    skills = {"exploration": [], "expedition": []}
-    for sk_type in ("exploration", "expedition"):
-        for sk in (hero_dict.get('skills', {}) or {}).get(sk_type, {}).values():
-            lvl = max(sk.get('level_percentage', {}).keys(), default=None)
-            multiplier = sk.get('level_percentage', {}).get(lvl, 0.0)
-            proc = sk.get('proc_chance', 0.0)
-            skills[sk_type].append(Skill(sk['skill-name'], multiplier, proc))
+def _parse_skill(node: dict) -> Skill:
+    lp_raw = node.get("level_percentage", {})
+    level_pct = _normalize_level_pct(lp_raw)
+    max_lvl = max(level_pct) if level_pct else 1
 
-    # Parse exclusive weapon
-    ew = hero_dict.get('exclusive-weapon')
-    ew_obj = None
-    ew_skills: Dict[str, Skill] = {}
-    if ew and 'levels' in ew:
-            levels = ew['levels']
-            # choose the requested EW level (or highest)
-            idx = (ew_level - 1) if ew_level and 1 <= ew_level <= len(levels) else len(levels) - 1
-            data = levels[idx]
+    return Skill(
+        name=node["skill-name"],
+        multiplier=level_pct.get(max_lvl, 0.0),
+        proc_chance=node.get("proc_chance", 0.0) or node.get("chance", 0.0),
+        description=node.get("description", ""),
+        extra={
+            "level_percentage": level_pct,
+            **{k: v for k, v in node.items() if k not in {
+                "skill-name", "description", "level_percentage",
+                "proc_chance", "chance"
+            }},
+        },
+    )
 
-            # build stat bonuses dict
-            stat_bonuses = {
-                k.replace('infantry-', '').replace('marksman-', '').replace('lancer-', ''): v
-                for k,v in data.items()
-                if k.endswith('-health') or k.endswith('-lethality')
-            }
 
-            # pull out any exploration/expedition skills on the weapon
-            for sk_type in ("exploration", "expedition"):
-                sk_info = data.get('skills', {}).get(sk_type)
-                if sk_info:
-                    mp = sk_info.get('level_percentage', 0.0)
-                    ew_skills[sk_type] = Skill(sk_info['skill-name'], mp, sk_info.get('proc_chance', 0.0))
+def _build_skill_list(raw: dict,
+                      branch: str,
+                      overrides: dict | None) -> List[Skill]:
+    out: List[Skill] = []
+    for node in raw.get("skills", {}).get(branch, {}).values():
+        sk = _parse_skill(node)
+        if overrides and sk.name in overrides:
+            lvl = overrides[sk.name]
+            sk.multiplier = sk.extra["level_percentage"].get(lvl, sk.multiplier)
+        out.append(sk)
+    return out
 
-            ew_obj = ExclusiveWeapon(
-                level      = data.get('level'),
-                power      = data.get('power', 0),
-                attack     = data.get('attack', 0),
-                defense    = data.get('defense', 0),
-                health     = data.get('health', 0),
-                stat_bonuses = stat_bonuses,
-                skills     = ew_skills
-            )
 
-            # ————— Merge EW skills into the hero’s lists —————
-            for sk_type, sk in ew_skills.items():
-                skills.setdefault(sk_type, []).append(sk)
+def _select_ew(raw: dict, ew_level: Optional[int]) -> Optional[ExclusiveWeapon]:
+    ew_root = raw.get("exclusive-weapon")
+    if not ew_root or "levels" not in ew_root:
+        return None
+
+    levels = ew_root["levels"]
+    idx = (ew_level - 1) if ew_level and 1 <= ew_level <= len(levels) else len(levels) - 1
+    blk = levels[idx]
+
+    perks = {k: v for k, v in blk.items()
+             if k.endswith(("-health", "-lethality"))}
+
+    ew_skill = None
+    sk_node = blk.get("skills", {}).get("expedition")
+    if sk_node:
+        ew_skill = _parse_skill(sk_node)
+
+    return ExclusiveWeapon(
+        name=ew_root["name"],
+        level=blk["level"],
+        power=blk.get("power", 0),
+        attack=blk.get("attack", 0),
+        defense=blk.get("defense", 0),
+        health=blk.get("health", 0),
+        perks=perks,
+        skills={"expedition": ew_skill} if ew_skill else {},
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# public factory
+# ─────────────────────────────────────────────────────────────────────────────
+def hero_from_dict(hero_data: dict | list,
+                   skill_levels: Optional[Dict[str, int]] = None,
+                   ew_level: Optional[int] = None) -> Hero:
+    """
+    Convert raw HEROES entry into a Hero with resolved skills/EW level.
+    """
+    raw = hero_data[0] if isinstance(hero_data, list) else hero_data
+
+    name = raw["hero-name"]
+    char_class = raw["hero-class"].capitalize()
+    rarity = raw.get("rarity", "SSR")
+    generation = raw.get("generation", 0)
+    base_stats = raw.get("base-stats", {})
+
+    skill_levels = skill_levels or {}
+
+    exploration = _build_skill_list(raw, "exploration", skill_levels)
+    expedition  = _build_skill_list(raw, "expedition",  skill_levels)
+
+    ew = _select_ew(raw, ew_level)
+    if ew and ew.skills.get("expedition"):
+        expedition.append(ew.skills["expedition"])
 
     return Hero(
         name=name,
@@ -80,8 +128,8 @@ def hero_from_dict(
         rarity=rarity,
         generation=generation,
         base_stats=base_stats,
-        skills=skills,
-        exclusive_weapon=ew_obj,
+        skills={"exploration": exploration, "expedition": expedition},
+        exclusive_weapon=ew,
         selected_skill_levels=skill_levels,
-        selected_ew_level=ew_level
+        selected_ew_level=ew_level,
     )
