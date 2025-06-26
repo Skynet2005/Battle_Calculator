@@ -1,6 +1,16 @@
 """
-Simulation runner — now returns `proc_stats`.
-NO SECTION ABBREVIATED.
+simulation.py
+=============
+
+•  simulate_battle  – runs one fight and *returns*:
+     - winner, rounds
+     - attacker / defender breakdown
+     - proc_stats          (on-attack / on-turn skill procs)
+     - passive_effects     (bullet-ready log of stat changes)
+     - bonuses             (final cumulative % per side)
+
+•  monte_carlo_battle – repeats simulate_battle N times and aggregates
+   win rate & survivors; includes the first run as “sample_battle”.
 """
 
 import logging
@@ -8,8 +18,13 @@ from copy import deepcopy
 from typing import Any, Dict
 from collections import defaultdict
 
-from expedition_battle_mechanics.combat_state import CombatState, BattleReportInput
+from expedition_battle_mechanics.combat_state import (
+    CombatState,
+    BattleReportInput,
+)
 
+# ─────────────────────────────────────────────────────────────────────────────
+# logger
 logger = logging.getLogger(__name__)
 if not logger.handlers:
     h = logging.StreamHandler()
@@ -18,25 +33,32 @@ if not logger.handlers:
 logger.setLevel(logging.INFO)
 
 
-def _hero_info(heroes, groups_after, start):
+# ─────────────────────────────────────────────────────────────────────────────
+def _hero_info(
+    heroes: Dict[str, Any],
+    groups_after: Dict[str, Any],
+    start: Dict[str, int],
+) -> Dict[str, Any]:
     out: Dict[str, Any] = {}
     for cls, hero in heroes.items():
-        g = groups_after[cls]
+        grp = groups_after[cls]
         out[cls] = {
             "name": hero.name,
             "class": hero.char_class,
             "generation": hero.generation,
-            "skills": [sk.name for sk in hero.skills.get("expedition", [])],
-            "troop_level": g.definition.name,
-            "troop_power": g.definition.power,
+            "skills": [s.name for s in hero.skills.get("expedition", [])],
+            "troop_level": grp.definition.name,
+            "troop_power": grp.definition.power,
             "count_start": start[cls],
-            "count_end": g.count,
+            "count_end": grp.count,
         }
     return out
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-def simulate_battle(report: BattleReportInput, max_rounds: int = 10_000) -> Dict[str, Any]:
+def simulate_battle(
+    report: BattleReportInput, max_rounds: int = 10_000
+) -> Dict[str, Any]:
     rpt = deepcopy(report)
     state = CombatState(rpt)
 
@@ -60,8 +82,8 @@ def simulate_battle(report: BattleReportInput, max_rounds: int = 10_000) -> Dict
         "attacker": {
             "heroes": _hero_info(state.attacker_heroes, state.attacker_groups, atk_start),
             "total_power": sum(
-                g.definition.power * atk_start[cls]
-                for cls, g in state.attacker_groups.items()
+                grp.definition.power * atk_start[cls]
+                for cls, grp in state.attacker_groups.items()
             ),
             "kills": atk_kills,
             "survivors": atk_end,
@@ -69,20 +91,31 @@ def simulate_battle(report: BattleReportInput, max_rounds: int = 10_000) -> Dict
         "defender": {
             "heroes": _hero_info(state.defender_heroes, state.defender_groups, def_start),
             "total_power": sum(
-                g.definition.power * def_start[cls]
-                for cls, g in state.defender_groups.items()
+                grp.definition.power * def_start[cls]
+                for cls, grp in state.defender_groups.items()
             ),
             "kills": def_kills,
             "survivors": def_end,
         },
         "proc_stats": dict(state.skill_procs),
+        "passive_effects": {
+            "attacker": state.passive_effects["atk"],
+            "defender": state.passive_effects["def"],
+        },
+        "bonuses": {
+            "attacker": state.attacker_bonus,
+            "defender": state.defender_bonus,
+        },
     }
 
 
-def monte_carlo_battle(report: BattleReportInput, n_sims: int = 1_000) -> Dict[str, Any]:
+# ─────────────────────────────────────────────────────────────────────────────
+def monte_carlo_battle(
+    report: BattleReportInput, n_sims: int = 1_000
+) -> Dict[str, Any]:
     wins = {"attacker": 0, "defender": 0}
-    atk_survivors = def_survivors = 0
-    proc_agg: Dict[str, int] = defaultdict(int)
+    atk_surv = def_surv = 0
+    proc_sum: Dict[str, int] = defaultdict(int)
     sample = None
 
     for i in range(n_sims):
@@ -90,16 +123,16 @@ def monte_carlo_battle(report: BattleReportInput, n_sims: int = 1_000) -> Dict[s
         if i == 0:
             sample = res
         wins[res["winner"]] += 1
-        atk_survivors += sum(res["attacker"]["survivors"].values())
-        def_survivors += sum(res["defender"]["survivors"].values())
+        atk_surv += sum(res["attacker"]["survivors"].values())
+        def_surv += sum(res["defender"]["survivors"].values())
         for k, v in res["proc_stats"].items():
-            proc_agg[k] += v
+            proc_sum[k] += v
 
     return {
         "attacker_win_rate": wins["attacker"] / n_sims,
         "defender_win_rate": wins["defender"] / n_sims,
-        "avg_attacker_survivors": atk_survivors / n_sims,
-        "avg_defender_survivors": def_survivors / n_sims,
-        "proc_stats": dict(proc_agg),
+        "avg_attacker_survivors": atk_surv / n_sims,
+        "avg_defender_survivors": def_surv / n_sims,
+        "proc_stats": dict(proc_sum),
         "sample_battle": sample,
     }
