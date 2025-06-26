@@ -53,6 +53,14 @@ To restart the Expo app:
 npx expo start
 ```
 
+TO UPDATE GITHUB:
+
+```bash
+git add .
+git commit -m "Your commit message"
+git push origin main
+```
+
 ## File Organization
 
 Below is a Mermaid diagram visualizing the file and folder structure of the project in a left-to-right outline format (excluding the Archive and Docs folders):

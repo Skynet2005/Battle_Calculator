@@ -9,9 +9,11 @@ from typing import List, Dict, Any
 from hero_data.hero_loader import HEROES as RAW_HEROES
 from troop_data.troop_definitions import TROOP_DEFINITIONS
 
-# battle_mechanics
+# import your updated expedition simulation
+from expedition_battle_mechanics.simulation import simulate_battle, monte_carlo_battle
+
+# expedition engine
 from expedition_battle_mechanics.loader       import hero_from_dict
-from expedition_battle_mechanics.simulation   import simulate_battle, monte_carlo_battle
 from expedition_battle_mechanics.combat_state import BattleReportInput
 from expedition_battle_mechanics.formation    import RallyFormation
 from expedition_battle_mechanics.bonus        import BonusSource
@@ -36,14 +38,14 @@ class SimRequest(BaseModel):
 
     @validator("attackerRatios", "defenderRatios")
     def check_ratios_sum(cls, v):
-        total = sum(v.get(c, 0) for c in ("Infantry", "Lancer", "Marksman"))
+        total = sum(v.get(c, 0) for c in ("Infantry","Lancer","Marksman"))
         if abs(total - 1.0) > 1e-6:
             raise ValueError(f"ratios must sum to 1.0 (got {total})")
         return v
 
     @validator("attackerTroops", "defenderTroops")
     def check_all_classes_present(cls, v):
-        missing = [c for c in ("Infantry", "Lancer", "Marksman") if c not in v or not v[c]]
+        missing = [c for c in ("Infantry","Lancer","Marksman") if c not in v or not v[c]]
         if missing:
             raise ValueError(f"Must specify a FC for each class ({missing})")
         return v
@@ -55,8 +57,8 @@ def get_heroes():
         hero = raw[0] if isinstance(raw, list) else raw
         out.append({
             "name":       hero.get("hero-name", key),
-            "charClass":  hero.get("hero-class", "").capitalize(),
-            "generation": hero.get("generation", 0),
+            "charClass":  hero.get("hero-class","").capitalize(),
+            "generation": hero.get("generation",0),
         })
     return out
 
@@ -66,37 +68,37 @@ def get_troops():
 
 @app.post("/api/simulate", response_model=Dict[str, Any])
 def run_simulation(req: SimRequest):
-    # 1) Resolve Heroes
+    # Resolve heroes
     try:
         atk_heroes = [hero_from_dict(RAW_HEROES[n]) for n in req.attackerHeroes]
         def_heroes = [hero_from_dict(RAW_HEROES[n]) for n in req.defenderHeroes]
     except KeyError as e:
         raise HTTPException(422, f"Unknown hero: {e.args[0]}")
 
-    # 2) Resolve Troop Definitions
+    # Resolve troop definitions
     try:
         atk_defs = {
             req.attackerTroops[c]: TROOP_DEFINITIONS[req.attackerTroops[c]]
-            for c in ("Infantry", "Lancer", "Marksman")
+            for c in ("Infantry","Lancer","Marksman")
         }
         def_defs = {
             req.defenderTroops[c]: TROOP_DEFINITIONS[req.defenderTroops[c]]
-            for c in ("Infantry", "Lancer", "Marksman")
+            for c in ("Infantry","Lancer","Marksman")
         }
     except KeyError as e:
         raise HTTPException(422, f"Unknown troop definition: {e.args[0]}")
 
-    # 3) Build Formations
+    # Build formations
     atk_form = RallyFormation(atk_heroes, req.attackerRatios, req.totalCapacity, atk_defs)
     def_form = RallyFormation(def_heroes, req.defenderRatios, req.totalCapacity, def_defs)
 
-    # 4) Bonus Sources
+    # Bonus sources
     atk_bonus = BonusSource(atk_heroes[0])
     def_bonus = BonusSource(def_heroes[0])
 
     rpt = BattleReportInput(atk_form, def_form, atk_bonus, def_bonus)
 
-    # 5) Run Simulation
+    # Run sim
     if req.sims <= 1:
         return simulate_battle(rpt)
     return monte_carlo_battle(rpt, n_sims=req.sims)
