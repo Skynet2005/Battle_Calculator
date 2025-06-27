@@ -188,4 +188,7 @@ export const styles = StyleSheet.create({
     textAlign: "center",
     flexWrap: "wrap",
   },
+  tableCellLeft: {
+    textAlign: "left",
+  },
 });

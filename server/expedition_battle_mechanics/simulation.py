@@ -2,15 +2,15 @@
 simulation.py
 =============
 
-•  simulate_battle  – runs one fight and *returns*:
-     - winner, rounds
-     - attacker / defender breakdown
-     - proc_stats          (on-attack / on-turn skill procs)
-     - passive_effects     (bullet-ready log of stat changes)
-     - bonuses             (final cumulative % per side)
+•  simulate_battle  – returns a dict ready for the front-end, including
+   - winner, rounds
+   - attacker / defender breakdown
+   - proc_stats          (on-attack / on-turn procs)
+   - passive_effects     (bullet-ready stat changes)
+   - bonuses             (final cumulative % per side)
 
-•  monte_carlo_battle – repeats simulate_battle N times and aggregates
-   win rate & survivors; includes the first run as “sample_battle”.
+•  monte_carlo_battle – repeats simulate_battle N times to get averages.
+NO SECTION ABBREVIATED.
 """
 
 import logging
@@ -32,21 +32,36 @@ if not logger.handlers:
     logger.addHandler(h)
 logger.setLevel(logging.INFO)
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 def _hero_info(
     heroes: Dict[str, Any],
     groups_after: Dict[str, Any],
     start: Dict[str, int],
 ) -> Dict[str, Any]:
+    """
+    Build a block for each hero that now ALSO exposes
+        "skill_pcts": { skill-name: multiplier(float) }
+    so the UI can print “+30 %” next to timed skills.
+    """
     out: Dict[str, Any] = {}
     for cls, hero in heroes.items():
         grp = groups_after[cls]
+
+        # grab % at the hero’s chosen level (defaults to 5)
+        skill_pcts = {
+            sk.name: hero.skills_pct(
+                sk.name,
+                hero.selected_skill_levels.get(sk.name, 5),
+            )
+            for sk in hero.skills.get("expedition", [])
+        }
+
         out[cls] = {
             "name": hero.name,
             "class": hero.char_class,
             "generation": hero.generation,
             "skills": [s.name for s in hero.skills.get("expedition", [])],
+            "skill_pcts": skill_pcts,                 #  ← NEW
             "troop_level": grp.definition.name,
             "troop_power": grp.definition.power,
             "count_start": start[cls],

@@ -3,22 +3,21 @@
  * NO SECTION ABBREVIATED.
  */
 
-import { Picker } from "@react-native-picker/picker";
 import axios from "axios";
 import React, { useEffect, useRef, useState } from "react";
 import { ScrollView, Text } from "react-native";
 
 import { styles } from "./styles";
 import {
-  Hero,
-  ClassSel,
-  SimResult,
   Class,
+  ClassSel,
+  Hero,
+  SimResult,
 } from "./types";
 
-import { SideSetup } from "./components/SideSetup";
 import { ConfigSection } from "./components/ConfigSection";
 import { ResultsSection } from "./components/ResultsSection";
+import { SideSetup } from "./components/SideSetup";
 
 /* ─────────────── Main Component ─────────────── */
 export default function App() {
@@ -28,7 +27,8 @@ export default function App() {
 
   /* config */
   const [attackType, setAttackType] = useState<"solo" | "rally">("solo");
-  const [capacity, setCapacity] = useState("185010");
+  const [attackerCapacity, setAttackerCapacity] = useState("185010");
+  const [defenderCapacity, setDefenderCapacity] = useState("185010");
   const [sims, setSims] = useState("1");
 
   /* selections */
@@ -49,14 +49,14 @@ export default function App() {
     Marksman: "3",
   });
   const [atkRatios, setAtkRatios] = useState<{ [cls in Class]: string }>({
-    Infantry: "0.5",
-    Lancer: "0.3",
+    Infantry: "0.45",
+    Lancer: "0.35",
     Marksman: "0.2",
   });
   const [defRatios, setDefRatios] = useState<{ [cls in Class]: string }>({
-    Infantry: "0.5",
-    Lancer: "0.3",
-    Marksman: "0.2",
+    Infantry: "0.6",
+    Lancer: "0.4",
+    Marksman: "0",
   });
 
   /* results */
@@ -77,7 +77,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    setCapacity(attackType === "solo" ? "185010" : "1377510");
+    if (attackType === "solo") {
+      setAttackerCapacity("185010");
+      setDefenderCapacity("185010");
+    } else {
+      setAttackerCapacity("1377510");
+      setDefenderCapacity("1377510");
+    }
   }, [attackType]);
 
   /* -------------- API helpers -------------- */
@@ -96,7 +102,8 @@ export default function App() {
     defenderHeroes: orderHeroes(defH, defSlots),
     attackerRatios: numObj(atkRatios),
     defenderRatios: numObj(defRatios),
-    totalCapacity: parseInt(capacity, 10),
+    attackerCapacity: parseInt(attackerCapacity, 10),
+    defenderCapacity: parseInt(defenderCapacity, 10),
     sims: parseInt(sims, 10),
     attackerTroops: atkT,
     defenderTroops: defT,
@@ -166,8 +173,10 @@ export default function App() {
       <ConfigSection
         attackType={attackType}
         setAttackType={setAttackType}
-        capacity={capacity}
-        setCapacity={setCapacity}
+        attackerCapacity={attackerCapacity}
+        setAttackerCapacity={setAttackerCapacity}
+        defenderCapacity={defenderCapacity}
+        setDefenderCapacity={setDefenderCapacity}
         sims={sims}
         setSims={setSims}
         onRun={runSim}

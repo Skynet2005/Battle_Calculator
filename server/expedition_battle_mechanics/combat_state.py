@@ -1,38 +1,32 @@
 """
-CombatState
-===========
+combat_state.py
+===============
 
 •  Resolves an expedition battle round-by-round.
-•  Aggregates *passive expedition skills* from every hero (both sides)
-   into attacker_bonus / defender_bonus **and** records a readable log
-   that the front-end can display.
-•  Tracks on-attack and on-turn procs for existing skill handlers.
-•  Provides helper accessors and proc counter.
+•  Always-on expedition buffs aggregated on construction.
+•  ON_TURN skills executed **before** any volleys.
+•  Damage maps for both sides are computed first, then casualties are
+   applied simultaneously.
+•  Side-specific buckets hold hero “flat damage” additions.
 """
 
 from __future__ import annotations
 
 import random
 from collections import defaultdict
-from typing import Dict, Tuple, DefaultDict, Callable
+from typing import Dict, Tuple, DefaultDict, Callable, Optional
 
 from expedition_battle_mechanics.formation import RallyFormation
 from expedition_battle_mechanics.bonus import BonusSource
 from expedition_battle_mechanics.troop import TroopGroup
 from expedition_battle_mechanics.hero import Hero
 
-# passive always-on expedition skill handlers
+# passive expedition buffs
 from expedition_battle_mechanics.skill_handlers.passive import PASSIVE_SKILLS
 
-# ─────────────────────────────────────────────────────────────────────────────
-#   Input wrapper
+
 # ─────────────────────────────────────────────────────────────────────────────
 class BattleReportInput:
-    """
-    Packs both formations plus their static BonusSource so we can deepcopy
-    once per simulation.
-    """
-
     def __init__(
         self,
         attacker_formation: RallyFormation,
@@ -47,16 +41,11 @@ class BattleReportInput:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#   CombatState core
-# ─────────────────────────────────────────────────────────────────────────────
 class CombatState:
-    """
-    Holds all mutable fight state; `step_round()` runs exactly one turn.
-    """
+    """Mutable fight state; `step_round()` advances exactly one round."""
 
-    # --------------------------------------------------------------------- #
     def __init__(self, rpt: BattleReportInput) -> None:
-        # ----- groups -----------------------------------------------------
+        # formations
         self.attacker_groups: Dict[str, TroopGroup] = (
             rpt.attacker_formation.troop_groups
         )
@@ -64,63 +53,59 @@ class CombatState:
             rpt.defender_formation.troop_groups
         )
 
-        # ----- heroes -----------------------------------------------------
+        # heroes
         self.attacker_heroes: Dict[str, Hero] = rpt.attacker_formation.heroes
         self.defender_heroes: Dict[str, Hero] = rpt.defender_formation.heroes
-
         for h in self.attacker_heroes.values():
             h.side = "atk"
         for h in self.defender_heroes.values():
             h.side = "def"
 
-        # ----- static bonuses (city / pet / weapon perks) -----------------
+        # static city / pet / EW perks
         self.attacker_bonus: Dict[str, float] = rpt.attacker_bonus.total_bonuses
         self.defender_bonus: Dict[str, float] = rpt.defender_bonus.total_bonuses
 
-        # ----- passive expedition skill log -------------------------------
+        # readable passive log for UI
         self.passive_effects: DefaultDict[str, list[str]] = defaultdict(list)
 
-        # merge passive expedition buffs
+        # merge always-on buffs
         self._apply_passives()
 
-        # ----- bookkeeping ------------------------------------------------
+        # bookkeeping
         self.turn: int = 0
         self.skill_procs: DefaultDict[str, int] = defaultdict(int)
-        self.pending_extra_damage: float = 0.0
+
+        # side-specific “flat extra dmg” buckets
+        self._extra_damage: Dict[str, float] = {"atk": 0.0, "def": 0.0}
 
     # ─────────────────────────────────────────────────────────────────────
-    #   Passive skill aggregation
+    #   public helper for handlers
+    def add_extra_damage(self, side: str, amount: float) -> None:
+        self._extra_damage[side] += amount
+
+    # ─────────────────────────────────────────────────────────────────────
+    #   passive-buff aggregation
     # ─────────────────────────────────────────────────────────────────────
     def _apply_passives(self) -> None:
-        """
-        Executes every handler in PASSIVE_SKILLS exactly once, merges its
-        stat changes into the correct bonus dict and appends a readable line
-        to self.passive_effects for UI.
-        """
-
         def make_adder(
             own: Dict[str, float],
             enemy: Dict[str, float],
             label: str,
+            skill_name: str,
         ) -> Callable[[str, float], None]:
-            """
-            Closure that passive handlers call to register a buff/debuff.
-            """
-
             def _add(key: str, pct: float) -> None:
-                # enemy-stat-down
                 if key.startswith("enemy-"):
                     stat = key.replace("enemy-", "").replace("-down", "")
                     enemy[stat] = enemy.get(stat, 0.0) - pct
                     self.passive_effects[label].append(
-                        f"{stat} {pct*100:+.1f}%  (enemy)"
+                        f"{skill_name}: {stat} {pct*100:+.1f}%  (enemy)"
                     )
                     return
-
-                # class-specific keys are flattened
                 stat = key.split("-")[-1] if "-" in key else key
                 own[stat] = own.get(stat, 0.0) + pct
-                self.passive_effects[label].append(f"{stat} {pct*100:+.1f}%")
+                self.passive_effects[label].append(
+                    f"{skill_name}: {stat} {pct*100:+.1f}%"
+                )
 
             return _add
 
@@ -128,22 +113,29 @@ class CombatState:
             self.defender_heroes.values()
         )
         for hero in heroes:
-            adder = make_adder(
-                self.attacker_bonus if hero.side == "atk" else self.defender_bonus,
-                self.defender_bonus if hero.side == "atk" else self.attacker_bonus,
-                hero.side,
-            )
             for sk in hero.skills["expedition"]:
                 handler = PASSIVE_SKILLS.get(sk.name)
                 if handler:
                     lvl = hero.selected_skill_levels.get(sk.name, 5)
-                    handler(hero, lvl, adder)
+                    handler(
+                        hero,
+                        lvl,
+                        make_adder(
+                            self.attacker_bonus if hero.side == "atk" else self.defender_bonus,
+                            self.defender_bonus if hero.side == "atk" else self.attacker_bonus,
+                            hero.side,
+                            sk.name,
+                        ),
+                    )
 
     # ─────────────────────────────────────────────────────────────────────
-    #   Helper utilities
+    #   skill-proc bookkeeping
     # ─────────────────────────────────────────────────────────────────────
-    def _proc(self, name: str, side: str) -> None:
-        self.skill_procs[f"{name}-{side}"] += 1
+    def _proc(self, name: str, side: str, troop_class: Optional[str] = None) -> None:
+        if troop_class is not None:
+            self.skill_procs[f"{name}-{side}-{troop_class}"] += 1
+        else:
+            self.skill_procs[f"{name}-{side}"] += 1
 
     def get_side_groups(self, hero: Hero):
         return (
@@ -160,7 +152,7 @@ class CombatState:
         )
 
     # ─────────────────────────────────────────────────────────────────────
-    #   Round lifecycle
+    #   round lifecycle
     # ─────────────────────────────────────────────────────────────────────
     def is_over(self) -> bool:
         atk_alive = any(g.count > 0 for g in self.attacker_groups.values())
@@ -168,42 +160,56 @@ class CombatState:
         return not (atk_alive and def_alive)
 
     # ------------------------------------------------------------------ #
-    def step_round(self) -> None:
-        """
-        sequence:
-          1) attacker damages defender (including ON_ATTACK skills)
-          2) defender damages attacker
-          3) per-turn skills (ON_TURN)
-          4) expire temporary buffs
-        """
-
-        # -------- import handlers lazily (avoid circular) ----------------
-        from expedition_battle_mechanics.skill_handlers.on_attack import ON_ATTACK
+    def _run_on_turn(self, side: str) -> None:
         from expedition_battle_mechanics.skill_handlers.on_turn import ON_TURN
 
-        # -------- phase A: attacker fires -------------------------------
-        atk_map = self._compute_side_damage(
-            self.attacker_groups, self.defender_groups, self.attacker_bonus, "atk"
+        heroes = (
+            self.attacker_heroes.values() if side == "atk" else self.defender_heroes.values()
         )
-        self._apply_damage(self.defender_groups, atk_map)
-
-        # -------- phase B: defender fires -------------------------------
-        def_map = self._compute_side_damage(
-            self.defender_groups, self.attacker_groups, self.defender_bonus, "def"
-        )
-        self._apply_damage(self.attacker_groups, def_map)
-
-        # -------- phase C: timed skills ---------------------------------
-        for hero in list(self.attacker_heroes.values()) + list(
-            self.defender_heroes.values()
-        ):
+        for hero in heroes:
             for sk in hero.skills["expedition"]:
                 handler = ON_TURN.get(sk.name)
                 if handler:
                     lvl = hero.selected_skill_levels.get(sk.name, 5)
                     handler(self, hero, lvl)
 
-        # -------- phase D: temporary defense buffs expire --------------
+    # ------------------------------------------------------------------ #
+    def step_round(self) -> None:
+        """
+        Hybrid model:
+            • ON_TURN skills first (both sides).
+            • Attacker fires; if defender collapses ⇒ round ends here.
+            • Defender fires; if attacker collapses ⇒ round ends here.
+            • Buff-duration bookkeeping.
+        """
+
+        # 0) ON_TURN buffs / nukes for BOTH sides
+        self._run_on_turn("atk")
+        self._run_on_turn("def")
+
+        # 1) attacker → defender
+        atk_map = self._compute_side_damage(
+            self.attacker_groups, self.defender_groups, self.attacker_bonus, "atk"
+        )
+        self._apply_damage(self.defender_groups, atk_map)
+
+        # early-exit if defender dead
+        if all(g.count == 0 for g in self.defender_groups.values()):
+            self.turn += 1
+            return
+
+        # 2) defender → attacker
+        def_map = self._compute_side_damage(
+            self.defender_groups, self.attacker_groups, self.defender_bonus, "def"
+        )
+        self._apply_damage(self.attacker_groups, def_map)
+
+        # early-exit if attacker dead
+        if all(g.count == 0 for g in self.attacker_groups.values()):
+            self.turn += 1
+            return
+
+        # 3) expire 2-turn defence buffs
         for g in list(self.attacker_groups.values()) + list(
             self.defender_groups.values()
         ):
@@ -215,7 +221,7 @@ class CombatState:
         self.turn += 1
 
     # ─────────────────────────────────────────────────────────────────────
-    #   Damage helpers
+    #   damage helpers
     # ─────────────────────────────────────────────────────────────────────
     def _compute_side_damage(
         self,
@@ -225,8 +231,7 @@ class CombatState:
         side: str,
     ) -> Dict[str, float]:
         """
-        Returns damage map {defender_class: raw_dmg} and also triggers all
-        ON_ATTACK handlers.
+        Returns {defender_class: raw_damage}.  Invokes ON_ATTACK handlers.
         """
 
         from expedition_battle_mechanics.skill_handlers.on_attack import ON_ATTACK
@@ -235,6 +240,8 @@ class CombatState:
         total_enemy = sum(d.count for d in defenders.values() if d.count > 0)
         if total_enemy == 0:
             return dmg
+
+        extra_pool = self._extra_damage[side]
 
         for cls, atk in attackers.items():
             if atk.count <= 0:
@@ -268,84 +275,77 @@ class CombatState:
                     atk.definition.power + deff.definition.power
                 )
                 per_troop = max(eff_atk * ratio - eff_def, eff_atk * ratio * 0.01)
-
                 base = per_troop * atk.count * dmg_mul
 
-                # distribute queued extra damage proportionally
                 share = deff.count / total_enemy
-                extra = self.pending_extra_damage * share
+                extra = extra_pool * share
 
                 dmg[dcls] += base + extra
 
-        self.pending_extra_damage = 0.0
+        # bucket consumed
+        self._extra_damage[side] = 0.0
         return dmg
 
     # ------------------------------------------------------------------ #
     def _troop_skill_mods(
         self, atk: TroopGroup, deff: TroopGroup
     ) -> Tuple[float, float, float]:
-        """
-        Returns (atk_multiplier, def_multiplier, damage_multiplier) for the
-        troop-skill rock/paper/scissor and crystal procs.
-        """
-
         atk_mul = def_mul = 1.0
         dmg_mul = 1.0
 
-        # Infantry ↔ Lancer intrinsic bonus
         if atk.class_name == "Infantry" and deff.class_name == "Lancer":
             atk_mul *= 1.10
             def_mul *= 1.10
 
-        # Infantry defense crystals
         if deff.class_name == "Infantry":
-            def_mul *= 1.06  # Body of Light static
+            def_mul *= 1.06
             if random.random() < 0.375:
-                dmg_mul = 0.0  # Crystal Shield full absorb
-                self._proc("Crystal Shield", deff.class_name.lower())
+                dmg_mul = 0.0
+                self._proc("Crystal Shield", "def", deff.class_name.lower())
                 if random.random() < 0.15:
-                    self._proc("Body of Light", deff.class_name.lower())
+                    self._proc("Body of Light", "def", deff.class_name.lower())
 
-        # Lancer attack crystals
+        if atk.class_name == "Infantry":
+            atk_mul *= 1.06
+            if random.random() < 0.375:
+                atk_mul *= 2.0
+                self._proc("Crystal Shield", "atk", atk.class_name.lower())
+                if random.random() < 0.15:
+                    self._proc("Body of Light", "atk", atk.class_name.lower())
+
         if atk.class_name == "Lancer":
             if deff.class_name == "Marksman":
-                atk_mul *= 1.10  # Charge intrinsic
+                atk_mul *= 1.10
             if random.random() < 0.15:
-                atk_mul *= 2.0  # Crystal Lance
-                self._proc("Crystal Lance", atk.class_name.lower())
+                atk_mul *= 2.0
+                self._proc("Crystal Lance", "atk", atk.class_name.lower())
         if deff.class_name == "Lancer" and random.random() < 0.10:
-            dmg_mul *= 0.5  # Incandescent Field
-            self._proc("Incandescent Field", deff.class_name.lower())
+            dmg_mul *= 0.5
+            self._proc("Incandescent Field", "def", deff.class_name.lower())
 
-        # Marksman attack crystals
         if atk.class_name == "Marksman":
             if deff.class_name == "Infantry":
-                atk_mul *= 1.10  # Ranged Strike
+                atk_mul *= 1.10
             if random.random() < 0.10:
-                atk_mul *= 2.0  # Volley
-                self._proc("Volley", atk.class_name.lower())
+                atk_mul *= 2.0
+                self._proc("Volley", "atk", atk.class_name.lower())
             if random.random() < 0.30:
-                atk_mul *= 1.50 * 1.25  # Gunpowder + Flame Charge
-                self._proc("Crystal Gunpowder", atk.class_name.lower())
+                atk_mul *= 1.50 * 1.25
+                self._proc("Crystal Gunpowder", "atk", atk.class_name.lower())
 
         return atk_mul, def_mul, dmg_mul
 
     # ------------------------------------------------------------------ #
     def _apply_damage(self, groups: Dict[str, TroopGroup], dmg: Dict[str, float]):
-        """
-        Translate raw damage into troop losses after shield absorbs.
-        """
         for cls, raw in dmg.items():
             g = groups[cls]
             if g.count <= 0 or raw <= 0.0:
                 continue
 
-            # absorb with shield
             if g.shield > 0.0:
                 absorbed = min(g.shield, raw)
                 raw -= absorbed
                 g.shield -= absorbed
 
-            # convert remaining raw to troop losses
             losses = max(int(raw / g.definition.health), 1)
             g.count = max(g.count - losses, 0)

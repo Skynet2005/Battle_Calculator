@@ -6,8 +6,11 @@ interface Props {
   attackType: "solo" | "rally";
   setAttackType: (t: "solo" | "rally") => void;
 
-  capacity: string;
-  setCapacity: (v: string) => void;
+  attackerCapacity: string;
+  setAttackerCapacity: (v: string) => void;
+
+  defenderCapacity: string;
+  setDefenderCapacity: (v: string) => void;
 
   sims: string;
   setSims: (v: string) => void;
@@ -41,26 +44,43 @@ export const ConfigSection: React.FC<Props> = (p) => (
       </View>
     </View>
 
-    {/* capacity + sims */}
-    {[
-      {
-        label: p.attackType === "rally" ? "Rally Capacity" : "March Capacity",
-        val: p.capacity,
-        setter: p.setCapacity,
-      },
-      { label: "Sim Count", val: p.sims, setter: p.setSims },
-    ].map((cfg) => (
-      <View key={cfg.label} style={styles.row}>
-        <Text style={styles.label}>{cfg.label}</Text>
-        <TextInput
-          style={styles.input}
-          value={cfg.val}
-          onChangeText={cfg.setter}
-          keyboardType="number-pad"
-          placeholderTextColor="#7B8794"
-        />
-      </View>
-    ))}
+    {/* attacker and defender capacity */}
+    <View style={styles.row}>
+      <Text style={styles.label}>
+        Attacker {p.attackType === "rally" ? "Rally" : "March"} Capacity
+      </Text>
+      <TextInput
+        style={styles.input}
+        value={p.attackerCapacity}
+        onChangeText={p.setAttackerCapacity}
+        keyboardType="number-pad"
+        placeholderTextColor="#7B8794"
+      />
+    </View>
+    <View style={styles.row}>
+      <Text style={styles.label}>
+        Defender {p.attackType === "rally" ? "Rally" : "March"} Capacity
+      </Text>
+      <TextInput
+        style={styles.input}
+        value={p.defenderCapacity}
+        onChangeText={p.setDefenderCapacity}
+        keyboardType="number-pad"
+        placeholderTextColor="#7B8794"
+      />
+    </View>
+
+    {/* sim count */}
+    <View style={styles.row}>
+      <Text style={styles.label}>Sim Count</Text>
+      <TextInput
+        style={styles.input}
+        value={p.sims}
+        onChangeText={p.setSims}
+        keyboardType="number-pad"
+        placeholderTextColor="#7B8794"
+      />
+    </View>
 
     {/* run button */}
     <TouchableOpacity onPress={p.onRun} style={styles.buttonContainer}>

@@ -1,5 +1,5 @@
 /* ──────────────────────────────────────────────────────────────
-   Type Declarations  (FULL FILE – no omissions)
+   Type Declarations
    ────────────────────────────────────────────────────────────── */
 
    export type Class = "Infantry" | "Lancer" | "Marksman";

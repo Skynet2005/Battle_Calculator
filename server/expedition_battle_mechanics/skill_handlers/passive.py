@@ -1,17 +1,5 @@
 """
 Passive expedition skills that are always “on”.
-Each handler receives
-    hero : Hero                – owning hero
-    lvl  : int                 – skill level (1-5, we default to 5)
-    add  : Callable[key, pct]  – collect a stat bonus or debuff
-
-The collector understands four kinds of keys:
-    "attack" | "defense" | "health" | "lethality"
-        → buff applied to the hero’s entire side
-    "Infantry-defense" (etc.)
-        → buff applied only to that troop class of the hero’s side
-    "enemy-attack-down" | "enemy-defense-down"
-        → debuff applied to the *opposing* side
 """
 
 from typing import Dict, Callable
@@ -32,13 +20,12 @@ def royal_legion(hero: Hero, lvl: int, add: AddFn) -> None:
 
 
 def indestructible_city(hero: Hero, lvl: int, add: AddFn) -> None:
-    """EW passive – Defender troops DEF ↑"""
-    if hero.side == "def":                       # only if Gatot is defending
+    if hero.side == "def":
         pct = hero.skills_pct("Indestructible City", lvl)
         add("defense", pct)
 
-
-# Hendrik (already in engine but kept here for clarity)
+# ─────────────────────────────────────────────────────────────────────────────
+# Hendrik
 def worms_ravage(hero: Hero, lvl: int, add: AddFn) -> None:
     pct = hero.skills_pct("Worm's Ravage", lvl)
     add("enemy-defense-down", pct)
@@ -48,12 +35,37 @@ def abyssal_blessing(hero: Hero, lvl: int, add: AddFn) -> None:
     pct = hero.skills_pct("Abyssal Blessing", lvl)
     add("attack", pct)
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Sonya
+def treasure_hunter(hero: Hero, lvl: int, add: AddFn) -> None:
+    """
+    Treasure Hunter – flat damage boost for the entire side.
+    Modeled as +ATK%.
+    """
+    pct = hero.skills_pct("Treasure Hunter", lvl)
+    add("attack", pct)
 
-# registry -------------------------------------------------------------------
+
+def bio_assault(hero: Hero, lvl: int, add: AddFn) -> None:
+    """
+    Bio Assault – Mangrove Frog EW passive.
+    Applies only while Sonya is DEFENDING.
+    Grants +Lethality% to the defender’s whole army.
+    """
+    if hero.side == "def":
+        pct = hero.skills_pct("Bio Assault", lvl)
+        add("lethality", pct)
+
+# ─────────────────────────────────────────────────────────────────────────────
 PASSIVE_SKILLS: Dict[str, Callable[[Hero, int, AddFn], None]] = {
-    "Golden Guard":          golden_guard,
-    "Royal Legion":          royal_legion,
-    "Indestructible City":   indestructible_city,
-    "Worm's Ravage":         worms_ravage,
-    "Abyssal Blessing":      abyssal_blessing,
+    # Gatot
+    "Golden Guard":         golden_guard,
+    "Royal Legion":         royal_legion,
+    "Indestructible City":  indestructible_city,
+    # Hendrik
+    "Worm's Ravage":        worms_ravage,
+    "Abyssal Blessing":     abyssal_blessing,
+    # Sonya
+    "Treasure Hunter":      treasure_hunter,
+    "Bio Assault":          bio_assault,
 }

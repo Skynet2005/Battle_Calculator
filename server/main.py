@@ -31,7 +31,8 @@ class SimRequest(BaseModel):
     defenderHeroes:   List[str]
     attackerRatios:   Dict[str, float]
     defenderRatios:   Dict[str, float]
-    totalCapacity:    int
+    attackerCapacity: int
+    defenderCapacity: int
     sims:             int
     attackerTroops:   Dict[str, str]
     defenderTroops:   Dict[str, str]
@@ -89,8 +90,8 @@ def run_simulation(req: SimRequest):
         raise HTTPException(422, f"Unknown troop definition: {e.args[0]}")
 
     # Build formations
-    atk_form = RallyFormation(atk_heroes, req.attackerRatios, req.totalCapacity, atk_defs)
-    def_form = RallyFormation(def_heroes, req.defenderRatios, req.totalCapacity, def_defs)
+    atk_form = RallyFormation(atk_heroes, req.attackerRatios, req.attackerCapacity, atk_defs)
+    def_form = RallyFormation(def_heroes, req.defenderRatios, req.defenderCapacity, def_defs)
 
     # Bonus sources
     atk_bonus = BonusSource(atk_heroes[0])
