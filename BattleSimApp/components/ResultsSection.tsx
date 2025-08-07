@@ -131,6 +131,42 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
         <Text style={styles.buttonText}>Copy All Results</Text>
       </TouchableOpacity>
 
+      {result.attacker_win_rate !== undefined && (
+        <View style={{ marginBottom: 16 }}>
+          <Text style={styles.resultHeader}>Simulation Summary</Text>
+          <View style={styles.tableContainer}>
+            <View style={styles.tableHeaderRow}>
+              <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Metric</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Value</Text>
+            </View>
+            <View style={styles.tableRow}>
+              <Text style={[styles.tableCell, { flex: 2 }]}>Attacker Win Rate</Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>
+                {((result.attacker_win_rate ?? 0) * 100).toFixed(1)}%
+              </Text>
+            </View>
+            <View style={styles.tableRow}>
+              <Text style={[styles.tableCell, { flex: 2 }]}>Defender Win Rate</Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>
+                {((result.defender_win_rate ?? 0) * 100).toFixed(1)}%
+              </Text>
+            </View>
+            <View style={styles.tableRow}>
+              <Text style={[styles.tableCell, { flex: 2 }]}>Avg Attacker Survivors</Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>
+                {Math.round(result.avg_attacker_survivors ?? 0)}
+              </Text>
+            </View>
+            <View style={styles.tableRow}>
+              <Text style={[styles.tableCell, { flex: 2 }]}>Avg Defender Survivors</Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>
+                {Math.round(result.avg_defender_survivors ?? 0)}
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
+
       <View style={{ flexDirection: "row", width: "100%" }}>
         <SideBlock
           label="Attacker"
@@ -209,6 +245,34 @@ const SideBlock: React.FC<SBProps> = ({
           <Text style={[styles.tableCell, { flex: 1 }]}>{detail.rounds}</Text>
         </View>
       </View>
+
+      {sideDetails && (
+        <>
+          <Text style={styles.subHeader}>Totals</Text>
+          <View style={styles.tableContainer}>
+            <View style={styles.tableHeaderRow}>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Start</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>End</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Losses</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Loss %</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Kills</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Kill %</Text>
+            </View>
+            <View style={styles.tableRow}>
+              <Text style={[styles.tableCell, { flex: 1 }]}>{sideDetails.summary.start}</Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>{sideDetails.summary.end}</Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>{sideDetails.summary.losses}</Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>
+                {(sideDetails.summary.loss_pct * 100).toFixed(1)}%
+              </Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>{sideDetails.summary.kills}</Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>
+                {(sideDetails.summary.kill_pct * 100).toFixed(1)}%
+              </Text>
+            </View>
+          </View>
+        </>
+      )}
 
       {/* Expedition-Skill impacts */}
       <Text style={styles.resultHeader}>Expedition-Skill Impacts</Text>
@@ -291,11 +355,35 @@ const SideBlock: React.FC<SBProps> = ({
                 <Text style={[styles.tableCell, { flex: 2 }]}>{h.name}</Text>
                 <Text style={[styles.tableCell, { flex: 1 }]}>{h.generation}</Text>
                 <Text style={[styles.tableCell, { flex: 1 }]}>{cls}</Text>
-                <Text style={[styles.tableCell, { flex: 1 }]}>
+                <Text style={[styles.tableCell, { flex: 1 }]}> 
                   {h.exclusive_weapon?.level ?? "-"}
                 </Text>
                 <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.count_start)}</Text>
                 <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.count_end)}</Text>
+              </View>
+            ))}
+          </View>
+
+          <Text style={styles.resultHeader}>Hero Performance</Text>
+          <View style={styles.tableContainer}>
+            <View style={styles.tableHeaderRow}>
+              <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Hero</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Lost</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Loss %</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Kills</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Kill %</Text>
+            </View>
+            {Object.entries(sideDetails.heroes).map(([cls, h]: [string, any]) => (
+              <View key={cls} style={styles.tableRow}>
+              <Text style={[styles.tableCell, { flex: 2 }]}>{h.name}</Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.count_lost)}</Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>
+                {(h.loss_pct * 100).toFixed(1)}%
+              </Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.kills)}</Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>
+                {(h.kill_pct * 100).toFixed(1)}%
+              </Text>
               </View>
             ))}
           </View>
