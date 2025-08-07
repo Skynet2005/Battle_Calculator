@@ -39,7 +39,8 @@ class Hero:
             for sk in self.skills.get(branch, []):
                 if sk.name == name:
                     lp = sk.extra.get("level_percentage", {})
-                    return lp.get(lvl, sk.multiplier)
+                    val = lp.get(lvl, sk.multiplier)
+                    return val if isinstance(val, (int, float)) else 0.0
         return 0.0
 
     def has_skill(self, name: str) -> bool:

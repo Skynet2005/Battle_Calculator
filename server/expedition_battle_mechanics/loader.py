@@ -21,14 +21,32 @@ from hero_data.hero_loader import HEROES
 # ─────────────────────────────────────────────────────────────────────────────
 # helpers
 # ─────────────────────────────────────────────────────────────────────────────
-def _normalize_level_pct(val: Union[float, Dict[int, float]]) -> Dict[int, float]:
-    """
-    Ensure we always return a dict[int,float].
-       0.75         → {1: 0.75}
-       {1:0.06,2:…} → unchanged
+def _normalize_level_pct(val: Union[float, Dict[int, Any]]) -> Dict[int, Any]:
+    """Return a level→value mapping for the ``level_percentage`` field.
+
+    ``hero_data`` is not completely uniform – some expedition skills express
+    multiple percentages per level (e.g. different values for Infantry and
+    Marksmen).  Prior to this fix ``_normalize_level_pct`` attempted to cast
+    every value to ``float`` which blew up when encountering those nested
+    dictionaries.  The battle engine only requires the mapping structure so we
+    preserve complex entries instead of casting them.
+
+    Examples
+    --------
+    0.75                       → {1: 0.75}
+    {1: 0.06, 2: 0.12}         → {1: 0.06, 2: 0.12}
+    {1: {"a": 1.0}}            → {1: {"a": 1.0}}
     """
     if isinstance(val, dict):
-        return {int(k): float(v) for k, v in val.items()}
+        out: Dict[int, Any] = {}
+        for k, v in val.items():
+            if isinstance(v, dict):
+                out[int(k)] = {sk: float(sv) for sk, sv in v.items()}
+            elif v is None:
+                out[int(k)] = 0.0
+            else:
+                out[int(k)] = float(v)
+        return out
     if val is None:
         return {}
     return {1: float(val)}
@@ -38,10 +56,13 @@ def _parse_skill(node: dict) -> Skill:
     lp_raw = node.get("level_percentage", {})
     level_pct = _normalize_level_pct(lp_raw)
     max_lvl = max(level_pct) if level_pct else 1
+    mult = level_pct.get(max_lvl, 0.0)
+    if isinstance(mult, dict):
+        mult = 0.0  # complex skills expose details via ``extra`` only
 
     return Skill(
         name=node["skill-name"],
-        multiplier=level_pct.get(max_lvl, 0.0),
+        multiplier=mult,
         proc_chance=node.get("proc_chance", 0.0) or node.get("chance", 0.0),
         description=node.get("description", ""),
         extra={
