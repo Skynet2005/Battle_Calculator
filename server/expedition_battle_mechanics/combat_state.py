@@ -95,6 +95,16 @@ class CombatState:
         # side-specific “flat extra dmg” buckets
         self._extra_damage: Dict[str, float] = {"atk": 0.0, "def": 0.0}
 
+        # temporary round-based stat bonuses (attack/defense etc.)
+        self.temp_bonus: Dict[str, DefaultDict[str, float]] = {
+            "atk": defaultdict(float),
+            "def": defaultdict(float),
+        }
+        self.temp_bonus_turns: Dict[str, DefaultDict[str, int]] = {
+            "atk": defaultdict(int),
+            "def": defaultdict(int),
+        }
+
     # ─────────────────────────────────────────────────────────────────────
     #   public helper for handlers
     def add_extra_damage(self, side: str, amount: float) -> None:
@@ -113,15 +123,23 @@ class CombatState:
             def _add(key: str, pct: float) -> None:
                 if key.startswith("enemy-"):
                     stat = key.replace("enemy-", "").replace("-down", "")
-                    enemy[stat] = enemy.get(stat, 0.0) - pct
+                    stat_key = stat.replace("-", "_")
+                    enemy[stat_key] = enemy.get(stat_key, 0.0) - pct
                     self.passive_effects[label].append(
                         f"{skill_name}: {stat} {pct*100:+.1f}%  (enemy)"
                     )
                     return
-                stat = key.split("-")[-1] if "-" in key else key
-                own[stat] = own.get(stat, 0.0) + pct
+
+                if "-" in key:
+                    cls, stat = key.split("-", 1)
+                    stat_key = f"{cls.lower()}_{stat}"
+                    display = key
+                else:
+                    stat_key = key
+                    display = key
+                own[stat_key] = own.get(stat_key, 0.0) + pct
                 self.passive_effects[label].append(
-                    f"{skill_name}: {stat} {pct*100:+.1f}%"
+                    f"{skill_name}: {display} {pct*100:+.1f}%"
                 )
 
             return _add
@@ -142,6 +160,19 @@ class CombatState:
                             sk.name,
                         ),
                     )
+
+    # ------------------------------------------------------------------ #
+    def add_temp_bonus(self, side: str, key: str, pct: float, turns: int) -> None:
+        """Apply a temporary stat modifier for ``turns`` rounds."""
+        if "-" in key:
+            cls, stat = key.split("-", 1)
+            norm = f"{cls.lower()}_{stat}"
+        else:
+            norm = key
+        self.temp_bonus[side][norm] += pct
+        self.temp_bonus_turns[side][norm] = max(
+            self.temp_bonus_turns[side][norm], turns
+        )
 
     # ─────────────────────────────────────────────────────────────────────
     #   skill-proc bookkeeping
@@ -221,6 +252,14 @@ class CombatState:
                 if g.temp_def_bonus_turns == 0:
                     g.temp_def_bonus = 0.0
 
+        # 4) decay temporary bonuses
+        for side in ("atk", "def"):
+            for k in list(self.temp_bonus_turns[side].keys()):
+                self.temp_bonus_turns[side][k] -= 1
+                if self.temp_bonus_turns[side][k] <= 0:
+                    del self.temp_bonus_turns[side][k]
+                    del self.temp_bonus[side][k]
+
         self.turn += 1
 
     # ─────────────────────────────────────────────────────────────────────
@@ -249,7 +288,16 @@ class CombatState:
             return dmg
 
         extra_pool = self._extra_damage[side]
-        enemy_bonus = self.defender_bonus if side == "atk" else self.attacker_bonus
+
+        # merge temporary bonuses for both sides
+        bonus_combined = bonus.copy()
+        for k, v in self.temp_bonus[side].items():
+            bonus_combined[k] = bonus_combined.get(k, 0.0) + v
+        enemy_base = self.defender_bonus if side == "atk" else self.attacker_bonus
+        enemy_bonus_combined = enemy_base.copy()
+        enemy_side = "def" if side == "atk" else "atk"
+        for k, v in self.temp_bonus[enemy_side].items():
+            enemy_bonus_combined[k] = enemy_bonus_combined.get(k, 0.0) + v
 
         def cls_bonus(src: Dict[str, float], cls: str, stat: str) -> float:
             key = f"{cls.lower()}_{stat}"
@@ -272,7 +320,7 @@ class CombatState:
 
             atk_stat = atk.definition.attack * (
                 1
-                + cls_bonus(bonus, cls, "attack")
+                + cls_bonus(bonus_combined, cls, "attack")
                 + atk.definition.stat_bonuses.get("Attack", 0.0)
             )
 
@@ -284,7 +332,7 @@ class CombatState:
 
                 def_stat = deff.definition.defense * (
                     1
-                    + cls_bonus(enemy_bonus, dcls, "defense")
+                    + cls_bonus(enemy_bonus_combined, dcls, "defense")
                     + deff.definition.stat_bonuses.get("Defense", 0.0)
                 )
                 def_stat *= 1 + deff.temp_def_bonus
@@ -362,7 +410,9 @@ class CombatState:
         appropriate health bonuses without relying on object identity.
         """
 
-        bonus = self.attacker_bonus if side == "atk" else self.defender_bonus
+        bonus = (self.attacker_bonus if side == "atk" else self.defender_bonus).copy()
+        for k, v in self.temp_bonus[side].items():
+            bonus[k] = bonus.get(k, 0.0) + v
 
         for cls, raw in dmg.items():
             g = groups[cls]

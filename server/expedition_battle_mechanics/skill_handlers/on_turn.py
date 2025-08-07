@@ -29,8 +29,34 @@ def dragons_heir(state: Any, hero: Hero, lvl: int) -> None:
         state.add_extra_damage(hero.side, extra)
     state._proc("Dragon's Heir", hero.side)
 
+# --------------------------------------------------------------------------- #
+def chemical_terror(state: Any, hero: Hero, lvl: int) -> None:
+    if state.turn % 3:
+        return
+    pct = hero.skills_pct("Chemical Terror", lvl)
+    state.add_temp_bonus(hero.side, "Lancer-attack", pct, 1)
+    sk = next(s for s in hero.skills["expedition"] if s.name == "Chemical Terror")
+    enemy_red = sk.extra.get("enemy_damage_reduction", {}).get(str(lvl), 0.0)
+    enemy_side = "def" if hero.side == "atk" else "atk"
+    state.add_temp_bonus(enemy_side, "attack", -enemy_red, 1)
+    state._proc("Chemical Terror", hero.side)
+
+# --------------------------------------------------------------------------- #
+def toxic_release(state: Any, hero: Hero, lvl: int) -> None:
+    if state.turn % 4:
+        return
+    sk = next(s for s in hero.skills["expedition"] if s.name == "Toxic Release")
+    inf_inc = sk.extra.get("damage_taken_increase", {}).get(str(lvl), 0.0)
+    marks_red = sk.extra.get("marksmen_damage_reduction", {}).get(str(lvl), 0.0)
+    enemy_side = "def" if hero.side == "atk" else "atk"
+    state.add_temp_bonus(enemy_side, "Infantry-defense", -inf_inc, 2)
+    state.add_temp_bonus(enemy_side, "Marksman-attack", -marks_red, 2)
+    state._proc("Toxic Release", hero.side)
+
 # ─────────────────────────────────────────────────────────────────────────────
 ON_TURN: Dict[str, Handler] = {
     "Armor of Barnacles": armor_of_barnacles,
     "Dragon's Heir":      dragons_heir,
+    "Chemical Terror":    chemical_terror,
+    "Toxic Release":      toxic_release,
 }
