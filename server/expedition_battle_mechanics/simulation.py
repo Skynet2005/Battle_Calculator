@@ -171,6 +171,8 @@ def simulate_battle(
         "bonuses": {
             "attacker": state.attacker_bonus,
             "defender": state.defender_bonus,
+            "attacker_special": state.attacker_special,
+            "defender_special": state.defender_special,
         },
     }
 
