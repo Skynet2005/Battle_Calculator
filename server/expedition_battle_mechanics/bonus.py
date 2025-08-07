@@ -31,10 +31,10 @@ class BonusSource:
     ):
         """Create a BonusSource for an entire side.
 
-        ``heroes`` may contain up to three heroes (Infantry/Lancer/Marksman).
-        All exclusive‑weapon perks are aggregated across the list so every
-        equipped weapon contributes its permanent stat increases.  This fixes a
-        previous oversight where only the first hero's weapon was considered.
+        ``heroes`` can be any iterable of Hero objects.  This allows rally
+        joiners' exclusive‑weapon perks to contribute alongside the primary
+        three commanders.  All exclusive‑weapon perks are aggregated across the
+        list so every equipped weapon contributes its permanent stat increases.
         """
 
         self.heroes = list(heroes)
