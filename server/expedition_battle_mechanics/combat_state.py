@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import random
 from collections import defaultdict
-from typing import Dict, Tuple, DefaultDict, Callable, Optional
+from typing import Dict, Tuple, DefaultDict, Callable, Optional, List
 
 from expedition_battle_mechanics.formation import RallyFormation
 from expedition_battle_mechanics.bonus import BonusSource
@@ -56,10 +56,27 @@ class CombatState:
         # heroes
         self.attacker_heroes: Dict[str, Hero] = rpt.attacker_formation.heroes
         self.defender_heroes: Dict[str, Hero] = rpt.defender_formation.heroes
+
+        # support heroes (rally joiners)
+        self.attacker_support: List[Hero] = list(
+            rpt.attacker_formation.support_heroes
+        )
+        self.defender_support: List[Hero] = list(
+            rpt.defender_formation.support_heroes
+        )
+
         for h in self.attacker_heroes.values():
             h.side = "atk"
         for h in self.defender_heroes.values():
             h.side = "def"
+        for h in self.attacker_support:
+            h.side = "atk"
+        for h in self.defender_support:
+            h.side = "def"
+
+        # convenience lists for iteration
+        self.attacker_all_heroes = list(self.attacker_heroes.values()) + self.attacker_support
+        self.defender_all_heroes = list(self.defender_heroes.values()) + self.defender_support
 
         # static city / pet / EW perks
         self.attacker_bonus: Dict[str, float] = rpt.attacker_bonus.total_bonuses
@@ -109,9 +126,7 @@ class CombatState:
 
             return _add
 
-        heroes = list(self.attacker_heroes.values()) + list(
-            self.defender_heroes.values()
-        )
+        heroes = self.attacker_all_heroes + self.defender_all_heroes
         for hero in heroes:
             for sk in hero.skills["expedition"]:
                 handler = PASSIVE_SKILLS.get(sk.name)
@@ -163,9 +178,7 @@ class CombatState:
     def _run_on_turn(self, side: str) -> None:
         from expedition_battle_mechanics.skill_handlers.on_turn import ON_TURN
 
-        heroes = (
-            self.attacker_heroes.values() if side == "atk" else self.defender_heroes.values()
-        )
+        heroes = self.attacker_all_heroes if side == "atk" else self.defender_all_heroes
         for hero in heroes:
             for sk in hero.skills["expedition"]:
                 handler = ON_TURN.get(sk.name)
