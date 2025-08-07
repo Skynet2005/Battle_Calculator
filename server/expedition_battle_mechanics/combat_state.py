@@ -191,7 +191,7 @@ class CombatState:
         atk_map = self._compute_side_damage(
             self.attacker_groups, self.defender_groups, self.attacker_bonus, "atk"
         )
-        self._apply_damage(self.defender_groups, atk_map)
+        self._apply_damage(self.defender_groups, atk_map, "def")
 
         # early-exit if defender dead
         if all(g.count == 0 for g in self.defender_groups.values()):
@@ -202,7 +202,7 @@ class CombatState:
         def_map = self._compute_side_damage(
             self.defender_groups, self.attacker_groups, self.defender_bonus, "def"
         )
-        self._apply_damage(self.attacker_groups, def_map)
+        self._apply_damage(self.attacker_groups, def_map, "atk")
 
         # early-exit if attacker dead
         if all(g.count == 0 for g in self.attacker_groups.values()):
@@ -230,8 +230,12 @@ class CombatState:
         bonus: Dict[str, float],
         side: str,
     ) -> Dict[str, float]:
-        """
-        Returns {defender_class: raw_damage}.  Invokes ON_ATTACK handlers.
+        """Returns {defender_class: raw_damage}.  Invokes ON_ATTACK handlers.
+
+        The ``bonus`` argument represents the attacking side's permanent stat
+        bonuses.  Defender bonuses are pulled from the opposing dictionary so
+        that defence/health perks from heroes, troops and exclusive weapons are
+        all respected.
         """
 
         from expedition_battle_mechanics.skill_handlers.on_attack import ON_ATTACK
@@ -242,6 +246,11 @@ class CombatState:
             return dmg
 
         extra_pool = self._extra_damage[side]
+        enemy_bonus = self.defender_bonus if side == "atk" else self.attacker_bonus
+
+        def cls_bonus(src: Dict[str, float], cls: str, stat: str) -> float:
+            key = f"{cls.lower()}_{stat}"
+            return src.get(stat, 0.0) + src.get(key, 0.0)
 
         for cls, atk in attackers.items():
             if atk.count <= 0:
@@ -258,18 +267,27 @@ class CombatState:
                     lvl = hero.selected_skill_levels.get(sk.name, 5)
                     handler(self, side, atk, hero, lvl)
 
+            atk_stat = atk.definition.attack * (
+                1
+                + cls_bonus(bonus, cls, "attack")
+                + atk.definition.stat_bonuses.get("Attack", 0.0)
+            )
+
             for dcls, deff in defenders.items():
                 if deff.count <= 0:
                     continue
 
                 atk_mul, def_mul, dmg_mul = self._troop_skill_mods(atk, deff)
 
-                eff_atk = atk.definition.attack * (1 + bonus.get("attack", 0.0))
-                eff_def = deff.definition.defense * (1 + bonus.get("defense", 0.0))
-                eff_def *= 1 + deff.temp_def_bonus
+                def_stat = deff.definition.defense * (
+                    1
+                    + cls_bonus(enemy_bonus, dcls, "defense")
+                    + deff.definition.stat_bonuses.get("Defense", 0.0)
+                )
+                def_stat *= 1 + deff.temp_def_bonus
 
-                eff_atk *= atk_mul
-                eff_def *= def_mul
+                eff_atk = atk_stat * atk_mul
+                eff_def = def_stat * def_mul
 
                 ratio = atk.definition.power / (
                     atk.definition.power + deff.definition.power
@@ -336,7 +354,15 @@ class CombatState:
         return atk_mul, def_mul, dmg_mul
 
     # ------------------------------------------------------------------ #
-    def _apply_damage(self, groups: Dict[str, TroopGroup], dmg: Dict[str, float]):
+    def _apply_damage(self, groups: Dict[str, TroopGroup], dmg: Dict[str, float], side: str):
+        """Apply raw damage to a side's troop groups.
+
+        ``side`` is the defending side ("atk" or "def") so we can look up the
+        appropriate health bonuses without relying on object identity.
+        """
+
+        bonus = self.attacker_bonus if side == "atk" else self.defender_bonus
+
         for cls, raw in dmg.items():
             g = groups[cls]
             if g.count <= 0 or raw <= 0.0:
@@ -347,5 +373,13 @@ class CombatState:
                 raw -= absorbed
                 g.shield -= absorbed
 
-            losses = max(int(raw / g.definition.health), 1)
+            cls_l = g.class_name.lower()
+            hp = g.definition.health * (
+                1
+                + bonus.get("health", 0.0)
+                + bonus.get(f"{cls_l}_health", 0.0)
+                + g.definition.stat_bonuses.get("Health", 0.0)
+            )
+
+            losses = max(int(raw / hp), 1)
             g.count = max(g.count - losses, 0)

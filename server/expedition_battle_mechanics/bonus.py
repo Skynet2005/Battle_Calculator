@@ -7,7 +7,7 @@ side is processed exactly once.
 """
 
 from __future__ import annotations
-from typing import Dict, Optional
+from typing import Dict, Optional, Iterable
 from expedition_battle_mechanics.hero import Hero
 
 
@@ -24,15 +24,25 @@ class BonusSource:
     # ------------------------------------------------------------------ #
     def __init__(
         self,
-        hero: Hero,
+        heroes: Iterable[Hero],
         city_buffs: Optional[Dict[str, float]] = None,
         territory_buffs: Optional[Dict[str, float]] = None,
         pet_buffs: Optional[Dict[str, float]] = None,
     ):
-        self.hero = hero
-        self.city_buffs = city_buffs or {}
-        self.territory_buffs = territory_buffs or {}
-        self.pet_buffs = pet_buffs or {}
+        """Create a BonusSource for an entire side.
+
+        ``heroes`` may contain up to three heroes (Infantry/Lancer/Marksman).
+        All exclusive‑weapon perks are aggregated across the list so every
+        equipped weapon contributes its permanent stat increases.  This fixes a
+        previous oversight where only the first hero's weapon was considered.
+        """
+
+        self.heroes = list(heroes)
+        self.city_buffs = {k.lower().replace("-", "_"): v for k, v in (city_buffs or {}).items()}
+        self.territory_buffs = {
+            k.lower().replace("-", "_"): v for k, v in (territory_buffs or {}).items()
+        }
+        self.pet_buffs = {k.lower().replace("-", "_"): v for k, v in (pet_buffs or {}).items()}
 
         # one mutable dict we keep updating
         self.total_bonuses: Dict[str, float] = {}
@@ -46,11 +56,12 @@ class BonusSource:
     # ------------------------------------------------------------------ #
     def _aggregate(self) -> None:
         # 1) exclusive-weapon **perks** (flat stat increases)
-        ew = self.hero.exclusive_weapon
-        if ew:
-            for k, v in ew.perks.items():
-                # unify key style (“infantry-health” → “infantry_health”)
-                self._add(k.replace("-", "_"), v)
+        for hero in self.heroes:
+            ew = hero.exclusive_weapon
+            if ew:
+                for k, v in ew.perks.items():
+                    # unify key style (“infantry-health” → “infantry_health”)
+                    self._add(k.replace("-", "_").lower(), v)
 
         # 2) external permanent buffs
         for src in (self.city_buffs, self.territory_buffs, self.pet_buffs):

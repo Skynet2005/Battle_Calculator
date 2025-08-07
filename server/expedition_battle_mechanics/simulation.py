@@ -61,6 +61,12 @@ def _hero_info(
             "class": hero.char_class,
             "generation": hero.generation,
             "skills": [s.name for s in hero.skills.get("expedition", [])],
+            "exclusive_weapon": {
+                "name": hero.exclusive_weapon.name,
+                "level": hero.exclusive_weapon.level,
+            }
+            if hero.exclusive_weapon
+            else None,
             "skill_pcts": skill_pcts,                 #  ← NEW
             "troop_level": grp.definition.name,
             "troop_power": grp.definition.power,
