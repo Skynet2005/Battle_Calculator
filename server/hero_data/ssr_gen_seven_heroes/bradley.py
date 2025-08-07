@@ -82,6 +82,13 @@ bradley_hero = [
                         "3": 0.15,
                         "4": 0.20,
                         "5": 0.25
+                    },
+                    "level_percentage": {
+                        "1": 0.06,
+                        "2": 0.12,
+                        "3": 0.18,
+                        "4": 0.24,
+                        "5": 0.30
                     }
                 },
                 "3": {
@@ -133,7 +140,8 @@ bradley_hero = [
                         "expedition": {
                             "skill-name": "Siege Insight",
                             "description": "Bradley knows exactly where to place defenses as a siege expert, increasing Defender Troops' Attack by 5%.",
-                            "defender_attack_increase": 0.05
+                            "defender_attack_increase": 0.05,
+                            "level_percentage": 0.05
                         }
                     }
                 },
@@ -154,7 +162,8 @@ bradley_hero = [
                         "expedition": {
                             "skill-name": "Siege Insight",
                             "description": "Bradley knows exactly where to place defenses as a siege expert, increasing Defender Troops' Attack by 5%.",
-                            "defender_attack_increase": 0.05
+                            "defender_attack_increase": 0.05,
+                            "level_percentage": 0.05
                         }
                     }
                 },
@@ -175,7 +184,8 @@ bradley_hero = [
                         "expedition": {
                             "skill-name": "Siege Insight",
                             "description": "Bradley knows exactly where to place defenses as a siege expert, increasing Defender Troops' Attack by 7.5%.",
-                            "defender_attack_increase": 0.075
+                            "defender_attack_increase": 0.075,
+                            "level_percentage": 0.075
                         }
                     }
                 },
@@ -196,7 +206,8 @@ bradley_hero = [
                         "expedition": {
                             "skill-name": "Siege Insight",
                             "description": "Bradley knows exactly where to place defenses as a siege expert, increasing Defender Troops' Attack by 7.5%.",
-                            "defender_attack_increase": 0.075
+                            "defender_attack_increase": 0.075,
+                            "level_percentage": 0.075
                         }
                     }
                 },
@@ -217,7 +228,8 @@ bradley_hero = [
                         "expedition": {
                             "skill-name": "Siege Insight",
                             "description": "Bradley knows exactly where to place defenses as a siege expert, increasing Defender Troops' Attack by 10%.",
-                            "defender_attack_increase": 0.10
+                            "defender_attack_increase": 0.10,
+                            "level_percentage": 0.10
                         }
                     }
                 },
@@ -238,7 +250,8 @@ bradley_hero = [
                         "expedition": {
                             "skill-name": "Siege Insight",
                             "description": "Bradley knows exactly where to place defenses as a siege expert, increasing Defender Troops' Attack by 10%.",
-                            "defender_attack_increase": 0.10
+                            "defender_attack_increase": 0.10,
+                            "level_percentage": 0.10
                         }
                     }
                 },
@@ -259,7 +272,8 @@ bradley_hero = [
                         "expedition": {
                             "skill-name": "Siege Insight",
                             "description": "Bradley knows exactly where to place defenses as a siege expert, increasing Defender Troops' Attack by 12.5%.",
-                            "defender_attack_increase": 0.125
+                            "defender_attack_increase": 0.125,
+                            "level_percentage": 0.125
                         }
                     }
                 },
@@ -280,7 +294,8 @@ bradley_hero = [
                         "expedition": {
                             "skill-name": "Siege Insight",
                             "description": "Bradley knows exactly where to place defenses as a siege expert, increasing Defender Troops' Attack by 12.5%.",
-                            "defender_attack_increase": 0.125
+                            "defender_attack_increase": 0.125,
+                            "level_percentage": 0.125
                         }
                     }
                 },
@@ -301,7 +316,8 @@ bradley_hero = [
                         "expedition": {
                             "skill-name": "Siege Insight",
                             "description": "Bradley knows exactly where to place defenses as a siege expert, increasing Defender Troops' Attack by 15%.",
-                            "defender_attack_increase": 0.15
+                            "defender_attack_increase": 0.15,
+                            "level_percentage": 0.15
                         }
                     }
                 }

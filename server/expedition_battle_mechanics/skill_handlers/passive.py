@@ -48,13 +48,59 @@ def treasure_hunter(hero: Hero, lvl: int, add: AddFn) -> None:
 
 def bio_assault(hero: Hero, lvl: int, add: AddFn) -> None:
     """
-    Bio Assault – Mangrove Frog EW passive.
-    Applies only while Sonya is DEFENDING.
-    Grants +Lethality% to the defender’s whole army.
+    Bio Assault – increases Rally troops' Lethality.
+
+    The in‑game skill only activates while defending.  Earlier revisions
+    of the simulator applied it for both sides which inflated attacking
+    Gordon/Sonya rallies.  Restrict the bonus to defenders to mirror the
+    intended behaviour.
     """
     if hero.side == "def":
         pct = hero.skills_pct("Bio Assault", lvl)
         add("lethality", pct)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Edith
+def strategic_balance(hero: Hero, lvl: int, add: AddFn) -> None:
+    pct = hero.skills_pct("Strategic Balance", lvl)
+    add("Marksman-defense", pct)
+    add("Lancer-attack", pct)
+
+
+def ironclad(hero: Hero, lvl: int, add: AddFn) -> None:
+    pct = hero.skills_pct("Ironclad", lvl)
+    add("Infantry-defense", pct)
+
+
+def steel_sentinel(hero: Hero, lvl: int, add: AddFn) -> None:
+    pct = hero.skills_pct("Steel Sentinel", lvl)
+    for cls in ("Infantry", "Lancer", "Marksman"):
+        add(f"{cls}-health", pct)
+
+
+def fortworks(hero: Hero, lvl: int, add: AddFn) -> None:
+    if hero.side == "def":
+        pct = hero.skills_pct("Fortworks", lvl)
+        add("health", pct)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Bradley
+def power_shot(hero: Hero, lvl: int, add: AddFn) -> None:
+    sk = next(s for s in hero.skills["expedition"] if s.name == "Power Shot")
+    l_map = sk.extra.get("lancer_damage_percentage", {})
+    i_map = sk.extra.get("infantry_damage_percentage", {})
+    l_pct = l_map.get(str(lvl), hero.skills_pct("Power Shot", lvl))
+    i_pct = i_map.get(str(lvl), 0.0)
+    add("enemy-lancer_defense-down", l_pct)
+    add("enemy-infantry_defense-down", i_pct)
+
+
+def siege_insight(hero: Hero, lvl: int, add: AddFn) -> None:
+    if hero.side == "def":
+        pct = hero.skills_pct("Siege Insight", lvl)
+        add("attack", pct)
 
 # ─────────────────────────────────────────────────────────────────────────────
 PASSIVE_SKILLS: Dict[str, Callable[[Hero, int, AddFn], None]] = {
@@ -68,4 +114,12 @@ PASSIVE_SKILLS: Dict[str, Callable[[Hero, int, AddFn], None]] = {
     # Sonya
     "Treasure Hunter":      treasure_hunter,
     "Bio Assault":          bio_assault,
+    # Edith
+    "Strategic Balance":    strategic_balance,
+    "Ironclad":             ironclad,
+    "Steel Sentinel":       steel_sentinel,
+    "Fortworks":            fortworks,
+    # Bradley
+    "Power Shot":           power_shot,
+    "Siege Insight":        siege_insight,
 }

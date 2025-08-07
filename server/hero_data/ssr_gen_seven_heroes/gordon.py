@@ -107,6 +107,13 @@ gordon_hero = [
                         "3": 0.18,
                         "4": 0.24,
                         "5": 0.30
+                    },
+                    "level_percentage": {
+                        "1": 0.06,
+                        "2": 0.12,
+                        "3": 0.18,
+                        "4": 0.24,
+                        "5": 0.30
                     }
                 }
             }
@@ -149,7 +156,8 @@ gordon_hero = [
                         "expedition": {
                             "skill-name": "Bio Assault",
                             "description": "Gordon privileges his allies with special envenomed weaponry, increasing Rally Squads' Lethality by 5%.",
-                            "rally_lethality_increase": 0.05
+                            "rally_lethality_increase": 0.05,
+                            "level_percentage": 0.05
                         }
                     }
                 },
@@ -171,7 +179,8 @@ gordon_hero = [
                         "expedition": {
                             "skill-name": "Bio Assault",
                             "description": "Gordon privileges his allies with special envenomed weaponry, increasing Rally Squads' Lethality by 5%.",
-                            "rally_lethality_increase": 0.05
+                            "rally_lethality_increase": 0.05,
+                            "level_percentage": 0.05
                         }
                     }
                 },
@@ -193,7 +202,8 @@ gordon_hero = [
                         "expedition": {
                             "skill-name": "Bio Assault",
                             "description": "Gordon privileges his allies with special envenomed weaponry, increasing Rally Squads' Lethality by 7.5%.",
-                            "rally_lethality_increase": 0.075
+                            "rally_lethality_increase": 0.075,
+                            "level_percentage": 0.075
                         }
                     }
                 },
@@ -215,7 +225,8 @@ gordon_hero = [
                         "expedition": {
                             "skill-name": "Bio Assault",
                             "description": "Gordon privileges his allies with special envenomed weaponry, increasing Rally Squads' Lethality by 7.5%.",
-                            "rally_lethality_increase": 0.075
+                            "rally_lethality_increase": 0.075,
+                            "level_percentage": 0.075
                         }
                     }
                 },
@@ -237,7 +248,8 @@ gordon_hero = [
                         "expedition": {
                             "skill-name": "Bio Assault",
                             "description": "Gordon privileges his allies with special envenomed weaponry, increasing Rally Squads' Lethality by 10%.",
-                            "rally_lethality_increase": 0.10
+                            "rally_lethality_increase": 0.10,
+                            "level_percentage": 0.10
                         }
                     }
                 },
@@ -259,7 +271,8 @@ gordon_hero = [
                         "expedition": {
                             "skill-name": "Bio Assault",
                             "description": "Gordon privileges his allies with special envenomed weaponry, increasing Rally Squads' Lethality by 10%.",
-                            "rally_lethality_increase": 0.10
+                            "rally_lethality_increase": 0.10,
+                            "level_percentage": 0.10
                         }
                     }
                 },
@@ -281,7 +294,8 @@ gordon_hero = [
                         "expedition": {
                             "skill-name": "Bio Assault",
                             "description": "Gordon privileges his allies with special envenomed weaponry, increasing Rally Squads' Lethality by 12.5%.",
-                            "rally_lethality_increase": 0.125
+                            "rally_lethality_increase": 0.125,
+                            "level_percentage": 0.125
                         }
                     }
                 },
@@ -303,7 +317,8 @@ gordon_hero = [
                         "expedition": {
                             "skill-name": "Bio Assault",
                             "description": "Gordon privileges his allies with special envenomed weaponry, increasing Rally Squads' Lethality by 12.5%.",
-                            "rally_lethality_increase": 0.125
+                            "rally_lethality_increase": 0.125,
+                            "level_percentage": 0.125
                         }
                     }
                 },
@@ -325,7 +340,8 @@ gordon_hero = [
                         "expedition": {
                             "skill-name": "Bio Assault",
                             "description": "Gordon privileges his allies with special envenomed weaponry, increasing Rally Squads' Lethality by 15%.",
-                            "rally_lethality_increase": 0.15
+                            "rally_lethality_increase": 0.15,
+                            "level_percentage": 0.15
                         }
                     }
                 }
