@@ -26,10 +26,25 @@
      class: string;
      generation: number;
      skills: string[];
+     exclusive_weapon?: { name: string; level: number } | null;
+     skill_pcts?: Record<string, number>;
      troop_level: string;
      troop_power: number;
      count_start: number;
      count_end: number;
+     count_lost: number;
+     loss_pct: number;
+     kills: number;
+     kill_pct: number;
+   }
+
+   export interface SideSummary {
+     start: number;
+     end: number;
+     losses: number;
+     loss_pct: number;
+     kills: number;
+     kill_pct: number;
    }
 
    /** one side (attacker / defender) in the final report */
@@ -38,6 +53,7 @@
      total_power: number;
      kills: TroopBreakdown;
      survivors: TroopBreakdown;
+     summary: SideSummary;
    }
 
    /** bullet-ready passive-skill log (added by backend) */
