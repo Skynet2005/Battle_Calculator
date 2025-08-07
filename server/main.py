@@ -94,8 +94,11 @@ def run_simulation(req: SimRequest):
     def_form = RallyFormation(def_heroes, req.defenderRatios, req.defenderCapacity, def_defs)
 
     # Bonus sources
-    atk_bonus = BonusSource(atk_heroes[0])
-    def_bonus = BonusSource(def_heroes[0])
+    # Aggregate permanent bonuses (city buffs, exclusive weapons, etc.) from
+    # **all** heroes on each side.  Previously only the first hero's exclusive
+    # weapon contributed, which skipped stats from the other two heroes.
+    atk_bonus = BonusSource(atk_heroes)
+    def_bonus = BonusSource(def_heroes)
 
     rpt = BattleReportInput(atk_form, def_form, atk_bonus, def_bonus)
 

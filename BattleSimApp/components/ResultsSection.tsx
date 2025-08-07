@@ -282,6 +282,7 @@ const SideBlock: React.FC<SBProps> = ({
               <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Hero</Text>
               <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Gen</Text>
               <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Class</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>EW Lv</Text>
               <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Start</Text>
               <Text style={[styles.tableHeaderCell, { flex: 1 }]}>End</Text>
             </View>
@@ -290,6 +291,9 @@ const SideBlock: React.FC<SBProps> = ({
                 <Text style={[styles.tableCell, { flex: 2 }]}>{h.name}</Text>
                 <Text style={[styles.tableCell, { flex: 1 }]}>{h.generation}</Text>
                 <Text style={[styles.tableCell, { flex: 1 }]}>{cls}</Text>
+                <Text style={[styles.tableCell, { flex: 1 }]}>
+                  {h.exclusive_weapon?.level ?? "-"}
+                </Text>
                 <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.count_start)}</Text>
                 <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.count_end)}</Text>
               </View>
