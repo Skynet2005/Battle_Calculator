@@ -37,6 +37,8 @@ def _hero_info(
     heroes: Dict[str, Any],
     groups_after: Dict[str, Any],
     start: Dict[str, int],
+    kills: Dict[str, int],
+    enemy_start: Dict[str, int],
 ) -> Dict[str, Any]:
     """
     Build a block for each hero that now ALSO exposes
@@ -72,6 +74,12 @@ def _hero_info(
             "troop_power": grp.definition.power,
             "count_start": start[cls],
             "count_end": grp.count,
+            "count_lost": start[cls] - grp.count,
+            "loss_pct": (start[cls] - grp.count) / start[cls] if start[cls] else 0,
+            "kills": kills.get(cls, 0),
+            "kill_pct": kills.get(cls, 0) / enemy_start.get(cls, 0)
+            if enemy_start.get(cls, 0)
+            else 0,
         }
     return out
 
@@ -97,26 +105,63 @@ def simulate_battle(
 
     winner = "attacker" if sum(atk_end.values()) > sum(def_end.values()) else "defender"
 
+    atk_total_start = sum(atk_start.values())
+    def_total_start = sum(def_start.values())
+    atk_total_end = sum(atk_end.values())
+    def_total_end = sum(def_end.values())
+    atk_losses = atk_total_start - atk_total_end
+    def_losses = def_total_start - def_total_end
+    atk_total_kills = sum(atk_kills.values())
+    def_total_kills = sum(def_kills.values())
+
     return {
         "winner": winner,
         "rounds": state.turn,
         "attacker": {
-            "heroes": _hero_info(state.attacker_heroes, state.attacker_groups, atk_start),
+            "heroes": _hero_info(
+                state.attacker_heroes,
+                state.attacker_groups,
+                atk_start,
+                atk_kills,
+                def_start,
+            ),
             "total_power": sum(
                 grp.definition.power * atk_start[cls]
                 for cls, grp in state.attacker_groups.items()
             ),
             "kills": atk_kills,
             "survivors": atk_end,
+            "summary": {
+                "start": atk_total_start,
+                "end": atk_total_end,
+                "losses": atk_losses,
+                "loss_pct": atk_losses / atk_total_start if atk_total_start else 0,
+                "kills": atk_total_kills,
+                "kill_pct": atk_total_kills / def_total_start if def_total_start else 0,
+            },
         },
         "defender": {
-            "heroes": _hero_info(state.defender_heroes, state.defender_groups, def_start),
+            "heroes": _hero_info(
+                state.defender_heroes,
+                state.defender_groups,
+                def_start,
+                def_kills,
+                atk_start,
+            ),
             "total_power": sum(
                 grp.definition.power * def_start[cls]
                 for cls, grp in state.defender_groups.items()
             ),
             "kills": def_kills,
             "survivors": def_end,
+            "summary": {
+                "start": def_total_start,
+                "end": def_total_end,
+                "losses": def_losses,
+                "loss_pct": def_losses / def_total_start if def_total_start else 0,
+                "kills": def_total_kills,
+                "kill_pct": def_total_kills / atk_total_start if atk_total_start else 0,
+            },
         },
         "proc_stats": dict(state.skill_procs),
         "passive_effects": {
