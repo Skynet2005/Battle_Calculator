@@ -34,6 +34,29 @@ class RallyFormation:
         # rally joiners (may be empty)
         self.support_heroes: List[Hero] = list(support_heroes or [])
 
+        # Game rule: only the top four joiners contribute their first
+        # expedition skill and none of their exclusive‑weapon perks.  We sort
+        # joiners by the level of that first skill (highest first), truncate
+        # to four, then strip extra skills and equipment.
+
+        def _skill_level(hero: Hero) -> int:
+            if hero.skills.get("expedition"):
+                sk = hero.skills["expedition"][0]
+                return hero.selected_skill_levels.get(sk.name, 5)
+            return 0
+
+        # sort & truncate
+        self.support_heroes.sort(key=_skill_level, reverse=True)
+        self.support_heroes = self.support_heroes[:4]
+
+        # keep only the first expedition skill and remove exclusive weapons
+        for h in self.support_heroes:
+            if h.skills.get("expedition"):
+                h.skills["expedition"] = h.skills["expedition"][:1]
+            else:
+                h.skills["expedition"] = []
+            h.exclusive_weapon = None
+
         self.troop_ratios = troop_ratios  # e.g., {"Infantry": 0.5, "Lancer": 0.3, "Marksman": 0.2}
         self.total_capacity = total_capacity
         self.troop_definitions = troop_definitions
