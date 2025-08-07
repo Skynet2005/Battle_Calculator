@@ -135,7 +135,7 @@ TROOP_DEFINITIONS = {
             "Health": 0.0
         }
     },
-    "Helios Infantry (FC8)": {
+    "Infantry (FC8)": {
         "Power": 110,
         "Defense": 23,
         "Lethality": 15,
