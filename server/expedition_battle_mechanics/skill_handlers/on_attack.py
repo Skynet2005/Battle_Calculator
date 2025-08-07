@@ -40,9 +40,28 @@ def bounty_temptation(state: Any, side: str, tg: TroopGroup, hero: Hero, lvl: in
     state.add_extra_damage(side, extra)
     state._proc("Bounty Temptation", side, tg.class_name)
 
+# ─────────────────────────────────────────────────────────────────────────────
+def venom_infusion(state: Any, side: str, tg: TroopGroup, hero: Hero, lvl: int) -> None:
+    if tg.class_name != "Lancer":
+        return
+    # Every 2 attacks → approximate with 50% chance
+    if random.random() >= 0.50:
+        return
+    pct = hero.skills_pct("Venom Infusion", lvl)
+    extra = hero.get_stat("attack") * pct * tg.count
+    state.add_extra_damage(side, extra)
+    # Enemy damage reduction for 1 turn
+    sk = next(s for s in hero.skills["expedition"] if s.name == "Venom Infusion")
+    dr_map = sk.extra.get("damage_reduction", {})
+    red = dr_map.get(str(lvl), 0.0)
+    enemy_side = "def" if side == "atk" else "atk"
+    state.add_temp_bonus(enemy_side, "attack", -red, 1)
+    state._proc("Venom Infusion", side, tg.class_name)
+
 # --------------------------------------------------------------------------- #
 ON_ATTACK: Dict[str, Handler] = {
     "King's Bestowal":  kings_bestowal,
     "Torrential Impact": torrential_impact,
     "Bounty Temptation": bounty_temptation,
+    "Venom Infusion":    venom_infusion,
 }
