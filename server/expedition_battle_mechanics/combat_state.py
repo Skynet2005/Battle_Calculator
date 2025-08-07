@@ -301,44 +301,42 @@ class CombatState:
         atk_mul = def_mul = 1.0
         dmg_mul = 1.0
 
+        # ---- Infantry ----
         if atk.class_name == "Infantry" and deff.class_name == "Lancer":
-            atk_mul *= 1.10
-            def_mul *= 1.10
+            atk_mul *= 1.10  # Master Brawler
 
         if deff.class_name == "Infantry":
-            def_mul *= 1.06
-            if random.random() < 0.375:
+            def_mul *= 1.06  # Body of Light (always-on portion)
+            if atk.class_name == "Lancer":
+                def_mul *= 1.10  # Bands of Steel
+            if random.random() < 0.375:  # Crystal Shield
                 dmg_mul = 0.0
                 self._proc("Crystal Shield", "def", deff.class_name.lower())
-                if random.random() < 0.15:
+                if random.random() < 0.15:  # Body of Light bonus when shield active
+                    dmg_mul *= 0.85
                     self._proc("Body of Light", "def", deff.class_name.lower())
 
-        if atk.class_name == "Infantry":
-            atk_mul *= 1.06
-            if random.random() < 0.375:
-                atk_mul *= 2.0
-                self._proc("Crystal Shield", "atk", atk.class_name.lower())
-                if random.random() < 0.15:
-                    self._proc("Body of Light", "atk", atk.class_name.lower())
-
+        # ---- Lancer ----
         if atk.class_name == "Lancer":
             if deff.class_name == "Marksman":
-                atk_mul *= 1.10
+                atk_mul *= 1.10  # Charge
             if random.random() < 0.15:
-                atk_mul *= 2.0
+                atk_mul *= 2.0  # Crystal Lance
                 self._proc("Crystal Lance", "atk", atk.class_name.lower())
         if deff.class_name == "Lancer" and random.random() < 0.10:
-            dmg_mul *= 0.5
+            dmg_mul *= 0.5  # Incandescent Field
             self._proc("Incandescent Field", "def", deff.class_name.lower())
 
+        # ---- Marksman ----
         if atk.class_name == "Marksman":
+            atk_mul *= 1.04  # Flame Charge base attack
             if deff.class_name == "Infantry":
-                atk_mul *= 1.10
+                atk_mul *= 1.10  # Ranged Strike
             if random.random() < 0.10:
-                atk_mul *= 2.0
+                atk_mul *= 2.0  # Volley
                 self._proc("Volley", "atk", atk.class_name.lower())
             if random.random() < 0.30:
-                atk_mul *= 1.50 * 1.25
+                atk_mul *= 1.50 * 1.25  # Crystal Gunpowder + Flame Charge bonus
                 self._proc("Crystal Gunpowder", "atk", atk.class_name.lower())
 
         return atk_mul, def_mul, dmg_mul
