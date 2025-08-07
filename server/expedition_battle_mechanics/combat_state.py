@@ -178,8 +178,8 @@ class CombatState:
         """
         Hybrid model:
             • ON_TURN skills first (both sides).
-            • Attacker fires; if defender collapses ⇒ round ends here.
-            • Defender fires; if attacker collapses ⇒ round ends here.
+            • Both sides calculate damage before any losses are applied.
+            • Casualties are applied simultaneously.
             • Buff-duration bookkeeping.
         """
 
@@ -187,27 +187,17 @@ class CombatState:
         self._run_on_turn("atk")
         self._run_on_turn("def")
 
-        # 1) attacker → defender
+        # 1) compute damage maps for both sides BEFORE applying
         atk_map = self._compute_side_damage(
             self.attacker_groups, self.defender_groups, self.attacker_bonus, "atk"
         )
-        self._apply_damage(self.defender_groups, atk_map, "def")
-
-        # early-exit if defender dead
-        if all(g.count == 0 for g in self.defender_groups.values()):
-            self.turn += 1
-            return
-
-        # 2) defender → attacker
         def_map = self._compute_side_damage(
             self.defender_groups, self.attacker_groups, self.defender_bonus, "def"
         )
-        self._apply_damage(self.attacker_groups, def_map, "atk")
 
-        # early-exit if attacker dead
-        if all(g.count == 0 for g in self.attacker_groups.values()):
-            self.turn += 1
-            return
+        # 2) apply casualties simultaneously
+        self._apply_damage(self.defender_groups, atk_map, "def")
+        self._apply_damage(self.attacker_groups, def_map, "atk")
 
         # 3) expire 2-turn defence buffs
         for g in list(self.attacker_groups.values()) + list(
