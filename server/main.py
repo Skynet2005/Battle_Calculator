@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, validator, Field
 from typing import List, Dict, Any
 
 # raw data
@@ -27,15 +27,17 @@ app.add_middleware(
 )
 
 class SimRequest(BaseModel):
-    attackerHeroes:   List[str]
-    defenderHeroes:   List[str]
-    attackerRatios:   Dict[str, float]
-    defenderRatios:   Dict[str, float]
-    attackerCapacity: int
-    defenderCapacity: int
-    sims:             int
-    attackerTroops:   Dict[str, str]
-    defenderTroops:   Dict[str, str]
+    attackerHeroes:        List[str]
+    defenderHeroes:        List[str]
+    attackerRatios:        Dict[str, float]
+    defenderRatios:        Dict[str, float]
+    attackerCapacity:      int
+    defenderCapacity:      int
+    sims:                  int
+    attackerTroops:        Dict[str, str]
+    defenderTroops:        Dict[str, str]
+    attackerSupportHeroes: List[str] = Field(default_factory=list)
+    defenderSupportHeroes: List[str] = Field(default_factory=list)
 
     @validator("attackerRatios", "defenderRatios")
     def check_ratios_sum(cls, v):
@@ -73,6 +75,8 @@ def run_simulation(req: SimRequest):
     try:
         atk_heroes = [hero_from_dict(RAW_HEROES[n]) for n in req.attackerHeroes]
         def_heroes = [hero_from_dict(RAW_HEROES[n]) for n in req.defenderHeroes]
+        atk_support = [hero_from_dict(RAW_HEROES[n]) for n in req.attackerSupportHeroes]
+        def_support = [hero_from_dict(RAW_HEROES[n]) for n in req.defenderSupportHeroes]
     except KeyError as e:
         raise HTTPException(422, f"Unknown hero: {e.args[0]}")
 
@@ -90,15 +94,26 @@ def run_simulation(req: SimRequest):
         raise HTTPException(422, f"Unknown troop definition: {e.args[0]}")
 
     # Build formations
-    atk_form = RallyFormation(atk_heroes, req.attackerRatios, req.attackerCapacity, atk_defs)
-    def_form = RallyFormation(def_heroes, req.defenderRatios, req.defenderCapacity, def_defs)
+    atk_form = RallyFormation(
+        atk_heroes,
+        req.attackerRatios,
+        req.attackerCapacity,
+        atk_defs,
+        support_heroes=atk_support,
+    )
+    def_form = RallyFormation(
+        def_heroes,
+        req.defenderRatios,
+        req.defenderCapacity,
+        def_defs,
+        support_heroes=def_support,
+    )
 
     # Bonus sources
     # Aggregate permanent bonuses (city buffs, exclusive weapons, etc.) from
-    # **all** heroes on each side.  Previously only the first hero's exclusive
-    # weapon contributed, which skipped stats from the other two heroes.
-    atk_bonus = BonusSource(atk_heroes)
-    def_bonus = BonusSource(def_heroes)
+    # **all** heroes on each side, including rally joiners.
+    atk_bonus = BonusSource(atk_form.all_heroes())
+    def_bonus = BonusSource(def_form.all_heroes())
 
     rpt = BattleReportInput(atk_form, def_form, atk_bonus, def_bonus)
 

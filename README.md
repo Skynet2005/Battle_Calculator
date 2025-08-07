@@ -18,6 +18,28 @@ cd server
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
+### Simulation API
+
+The backend exposes a `/api/simulate` endpoint that mirrors in‑game expedition
+and rally battles. Besides the three primary commanders, you can now specify
+support heroes that join a rally and contribute their passive expedition skills
+and exclusive‑weapon bonuses:
+
+```json
+{
+  "attackerHeroes": ["Sergey", "Patrick", "Gina"],
+  "attackerSupportHeroes": ["Hendrik"],
+  "defenderHeroes": ["Sergey", "Patrick", "Gina"],
+  "defenderSupportHeroes": [],
+  "attackerRatios": {"Infantry": 1.0, "Lancer": 0.0, "Marksman": 0.0},
+  "defenderRatios": {"Infantry": 1.0, "Lancer": 0.0, "Marksman": 0.0},
+  ...
+}
+```
+
+Support heroes do not command troops but their permanent buffs are aggregated
+into the battle calculation, ensuring more accurate rally simulations.
+
 Creating the front-end:
 
 ```bash
