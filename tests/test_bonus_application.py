@@ -17,7 +17,13 @@ from expedition_battle_mechanics.hero import Hero
 from expedition_battle_mechanics.simulation import simulate_battle
 
 
-def _make_side(attack_bonus=0.0, defense_bonus=0.0, health_bonus=0.0):
+def _make_side(
+    attack_bonus: float = 0.0,
+    defense_bonus: float = 0.0,
+    health_bonus: float = 0.0,
+    lethality_bonus: float = 0.0,
+    base_lethality: int = 0,
+):
     heroes = [
         Hero("I", "Infantry", "SSR", 1, {}, {"exploration": [], "expedition": []}),
         Hero("L", "Lancer", "SSR", 1, {}, {"exploration": [], "expedition": []}),
@@ -30,7 +36,7 @@ def _make_side(attack_bonus=0.0, defense_bonus=0.0, health_bonus=0.0):
             "Power": 100,
             "Attack": 30,
             "Defense": 10,
-            "Lethality": 0,
+            "Lethality": base_lethality,
             "Health": 10,
             "StatBonuses": {
                 "Attack": 0.0,
@@ -43,7 +49,7 @@ def _make_side(attack_bonus=0.0, defense_bonus=0.0, health_bonus=0.0):
             "Power": 100,
             "Attack": 30,
             "Defense": 10,
-            "Lethality": 0,
+            "Lethality": base_lethality,
             "Health": 10,
             "StatBonuses": {"Attack": 0.0, "Defense": 0.0, "Lethality": 0.0, "Health": 0.0},
         },
@@ -51,24 +57,37 @@ def _make_side(attack_bonus=0.0, defense_bonus=0.0, health_bonus=0.0):
             "Power": 100,
             "Attack": 30,
             "Defense": 10,
-            "Lethality": 0,
+            "Lethality": base_lethality,
             "Health": 10,
             "StatBonuses": {"Attack": 0.0, "Defense": 0.0, "Lethality": 0.0, "Health": 0.0},
         },
     }
 
     form = RallyFormation(heroes, ratios, 100, td)
-    bs = BonusSource(heroes, city_buffs={
-        "attack": attack_bonus,
-        "defense": defense_bonus,
-        "health": health_bonus,
-    })
+    bs = BonusSource(
+        heroes,
+        city_buffs={
+            "attack": attack_bonus,
+            "defense": defense_bonus,
+            "health": health_bonus,
+            "lethality": lethality_bonus,
+        },
+    )
     return form, bs
 
 
 def _run(att_bonus=0.0, def_bonus=0.0, def_health=0.0):
     atk_form, atk_bs = _make_side(attack_bonus=att_bonus)
     def_form, def_bs = _make_side(defense_bonus=def_bonus, health_bonus=def_health)
+    rpt = BattleReportInput(atk_form, def_form, atk_bs, def_bs)
+    random.seed(0)
+    res = simulate_battle(rpt, max_rounds=1)
+    return res["defender"]["survivors"]["Infantry"]
+
+
+def _run_leth(leth_bonus=0.0):
+    atk_form, atk_bs = _make_side(lethality_bonus=leth_bonus, base_lethality=10)
+    def_form, def_bs = _make_side()
     rpt = BattleReportInput(atk_form, def_form, atk_bs, def_bs)
     random.seed(0)
     res = simulate_battle(rpt, max_rounds=1)
@@ -91,6 +110,12 @@ def test_health_bonus_reduces_losses():
     base = _run()
     durable = _run(def_health=1.0)  # +100% health
     assert durable > base
+
+
+def test_lethality_bonus_increases_damage():
+    base = _run_leth()
+    lethal = _run_leth(leth_bonus=1.0)  # +100% lethality
+    assert lethal < base
 
 
 def test_bonus_source_aggregates_exclusive_weapons():
@@ -156,7 +181,12 @@ def test_special_bonus_formula_matches_wiki():
     eff_atk = eff_atk * (1 + 0.15) + atk.definition.attack * 0.15
     atk_mul, def_mul, dmg_mul = state._troop_skill_mods(atk, deff)
     eff_atk *= atk_mul
+    eff_leth = atk.definition.lethality
+    eff_leth = eff_leth * (1 + 0.15) + atk.definition.lethality * 0.15
+    eff_leth *= atk_mul
     eff_def = deff.definition.defense * def_mul
-    expected = max(eff_atk * ratio - eff_def, eff_atk * ratio * 0.01) * atk.count * dmg_mul
+    expected = (
+        max(eff_atk * ratio - eff_def, eff_atk * ratio * 0.01) + eff_leth * ratio
+    ) * atk.count * dmg_mul
     assert dmg["Infantry"] == pytest.approx(expected)
 

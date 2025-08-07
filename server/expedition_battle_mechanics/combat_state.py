@@ -341,6 +341,14 @@ class CombatState:
             )
             atk_stat = atk_stat * (1 + spec_pct) + atk.definition.attack * spec_pct
 
+            # lethality stat – bypasses defense and chips health directly
+            leth_base = cls_bonus(bonus_combined, cls, "lethality")
+            leth_spec = cls_bonus(special_combined, cls, "lethality")
+            leth_stat = atk.definition.lethality * (
+                1 + leth_base + atk.definition.stat_bonuses.get("Lethality", 0.0)
+            )
+            leth_stat = leth_stat * (1 + leth_spec) + atk.definition.lethality * leth_spec
+
             for dcls, deff in defenders.items():
                 if deff.count <= 0:
                     continue
@@ -356,12 +364,14 @@ class CombatState:
                 def_stat *= 1 + deff.temp_def_bonus
 
                 eff_atk = atk_stat * atk_mul
+                eff_leth = leth_stat * atk_mul
                 eff_def = def_stat * def_mul
 
                 ratio = atk.definition.power / (
                     atk.definition.power + deff.definition.power
                 )
                 per_troop = max(eff_atk * ratio - eff_def, eff_atk * ratio * 0.01)
+                per_troop += eff_leth * ratio
                 base = per_troop * atk.count * dmg_mul
 
                 share = deff.count / total_enemy
