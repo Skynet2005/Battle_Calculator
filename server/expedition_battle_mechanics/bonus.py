@@ -38,20 +38,33 @@ class BonusSource:
         """
 
         self.heroes = list(heroes)
-        self.city_buffs = {k.lower().replace("-", "_"): v for k, v in (city_buffs or {}).items()}
-        self.territory_buffs = {
+        self.city_buffs = {
+            k.lower().replace("-", "_"): v for k, v in (city_buffs or {}).items()
+        }
+        # Treat territory buffs as "special" bonuses that cannot stack
+        self.special_buffs = {
             k.lower().replace("-", "_"): v for k, v in (territory_buffs or {}).items()
         }
-        self.pet_buffs = {k.lower().replace("-", "_"): v for k, v in (pet_buffs or {}).items()}
+        self.pet_buffs = {
+            k.lower().replace("-", "_"): v for k, v in (pet_buffs or {}).items()
+        }
 
-        # one mutable dict we keep updating
-        self.total_bonuses: Dict[str, float] = {}
+        # separate containers for regular and special bonuses
+        self.base_bonuses: Dict[str, float] = {}
+        self.special_bonuses: Dict[str, float] = {}
+        # backward compatible alias
+        self.total_bonuses = self.base_bonuses
+
         self._aggregate()
 
     # ------------------------------------------------------------------ #
-    def _add(self, key: str, val: float) -> None:
+    def _add_base(self, key: str, val: float) -> None:
         """Utility – accumulate percentages from multiple sources."""
-        self.total_bonuses[key] = self.total_bonuses.get(key, 0.0) + val
+        self.base_bonuses[key] = self.base_bonuses.get(key, 0.0) + val
+
+    def _add_special(self, key: str, val: float) -> None:
+        """Utility – special bonuses take the highest value (no stacking)."""
+        self.special_bonuses[key] = max(self.special_bonuses.get(key, 0.0), val)
 
     # ------------------------------------------------------------------ #
     def _aggregate(self) -> None:
@@ -61,12 +74,15 @@ class BonusSource:
             if ew:
                 for k, v in ew.perks.items():
                     # unify key style (“infantry-health” → “infantry_health”)
-                    self._add(k.replace("-", "_").lower(), v)
+                    self._add_base(k.replace("-", "_").lower(), v)
 
         # 2) external permanent buffs
-        for src in (self.city_buffs, self.territory_buffs, self.pet_buffs):
+        for src in (self.city_buffs, self.pet_buffs):
             for k, v in src.items():
-                self._add(k, v)
+                self._add_base(k, v)
+
+        for k, v in self.special_buffs.items():
+            self._add_special(k, v)
 
         # 3)  ✨ NO expedition skills here anymore ✨
         #     All passive skills are collected once, for every hero,

@@ -78,9 +78,11 @@ class CombatState:
         self.attacker_all_heroes = list(self.attacker_heroes.values()) + self.attacker_support
         self.defender_all_heroes = list(self.defender_heroes.values()) + self.defender_support
 
-        # static city / pet / EW perks
-        self.attacker_bonus: Dict[str, float] = rpt.attacker_bonus.total_bonuses
-        self.defender_bonus: Dict[str, float] = rpt.defender_bonus.total_bonuses
+        # static city / pet / EW perks (base + special)
+        self.attacker_bonus: Dict[str, float] = rpt.attacker_bonus.base_bonuses
+        self.attacker_special: Dict[str, float] = rpt.attacker_bonus.special_bonuses
+        self.defender_bonus: Dict[str, float] = rpt.defender_bonus.base_bonuses
+        self.defender_special: Dict[str, float] = rpt.defender_bonus.special_bonuses
 
         # readable passive log for UI
         self.passive_effects: DefaultDict[str, list[str]] = defaultdict(list)
@@ -233,10 +235,18 @@ class CombatState:
 
         # 1) compute damage maps for both sides BEFORE applying
         atk_map = self._compute_side_damage(
-            self.attacker_groups, self.defender_groups, self.attacker_bonus, "atk"
+            self.attacker_groups,
+            self.defender_groups,
+            self.attacker_bonus,
+            self.attacker_special,
+            "atk",
         )
         def_map = self._compute_side_damage(
-            self.defender_groups, self.attacker_groups, self.defender_bonus, "def"
+            self.defender_groups,
+            self.attacker_groups,
+            self.defender_bonus,
+            self.defender_special,
+            "def",
         )
 
         # 2) apply casualties simultaneously
@@ -270,14 +280,14 @@ class CombatState:
         attackers: Dict[str, TroopGroup],
         defenders: Dict[str, TroopGroup],
         bonus: Dict[str, float],
+        bonus_special: Dict[str, float],
         side: str,
     ) -> Dict[str, float]:
         """Returns {defender_class: raw_damage}.  Invokes ON_ATTACK handlers.
 
-        The ``bonus`` argument represents the attacking side's permanent stat
-        bonuses.  Defender bonuses are pulled from the opposing dictionary so
-        that defence/health perks from heroes, troops and exclusive weapons are
-        all respected.
+        ``bonus`` holds regular stat modifiers while ``bonus_special`` contains
+        the special bonuses (territory, gem buffs, etc.) that apply using the
+        compound formula described on the Whiteout Survival wiki.
         """
 
         from expedition_battle_mechanics.skill_handlers.on_attack import ON_ATTACK
@@ -293,8 +303,14 @@ class CombatState:
         bonus_combined = bonus.copy()
         for k, v in self.temp_bonus[side].items():
             bonus_combined[k] = bonus_combined.get(k, 0.0) + v
+        special_combined = bonus_special.copy()
+
         enemy_base = self.defender_bonus if side == "atk" else self.attacker_bonus
+        enemy_special = (
+            self.defender_special if side == "atk" else self.attacker_special
+        )
         enemy_bonus_combined = enemy_base.copy()
+        enemy_special_combined = enemy_special.copy()
         enemy_side = "def" if side == "atk" else "atk"
         for k, v in self.temp_bonus[enemy_side].items():
             enemy_bonus_combined[k] = enemy_bonus_combined.get(k, 0.0) + v
@@ -318,11 +334,12 @@ class CombatState:
                     lvl = hero.selected_skill_levels.get(sk.name, 5)
                     handler(self, side, atk, hero, lvl)
 
+            base_pct = cls_bonus(bonus_combined, cls, "attack")
+            spec_pct = cls_bonus(special_combined, cls, "attack")
             atk_stat = atk.definition.attack * (
-                1
-                + cls_bonus(bonus_combined, cls, "attack")
-                + atk.definition.stat_bonuses.get("Attack", 0.0)
+                1 + base_pct + atk.definition.stat_bonuses.get("Attack", 0.0)
             )
+            atk_stat = atk_stat * (1 + spec_pct) + atk.definition.attack * spec_pct
 
             for dcls, deff in defenders.items():
                 if deff.count <= 0:
@@ -330,11 +347,12 @@ class CombatState:
 
                 atk_mul, def_mul, dmg_mul = self._troop_skill_mods(atk, deff)
 
+                def_base_pct = cls_bonus(enemy_bonus_combined, dcls, "defense")
+                def_spec_pct = cls_bonus(enemy_special_combined, dcls, "defense")
                 def_stat = deff.definition.defense * (
-                    1
-                    + cls_bonus(enemy_bonus_combined, dcls, "defense")
-                    + deff.definition.stat_bonuses.get("Defense", 0.0)
+                    1 + def_base_pct + deff.definition.stat_bonuses.get("Defense", 0.0)
                 )
+                def_stat = def_stat * (1 + def_spec_pct) + deff.definition.defense * def_spec_pct
                 def_stat *= 1 + deff.temp_def_bonus
 
                 eff_atk = atk_stat * atk_mul
@@ -413,6 +431,7 @@ class CombatState:
         bonus = (self.attacker_bonus if side == "atk" else self.defender_bonus).copy()
         for k, v in self.temp_bonus[side].items():
             bonus[k] = bonus.get(k, 0.0) + v
+        special = self.attacker_special if side == "atk" else self.defender_special
 
         for cls, raw in dmg.items():
             g = groups[cls]
@@ -425,12 +444,14 @@ class CombatState:
                 g.shield -= absorbed
 
             cls_l = g.class_name.lower()
-            hp = g.definition.health * (
-                1
-                + bonus.get("health", 0.0)
+            base_pct = (
+                bonus.get("health", 0.0)
                 + bonus.get(f"{cls_l}_health", 0.0)
                 + g.definition.stat_bonuses.get("Health", 0.0)
             )
+            spec_pct = special.get("health", 0.0) + special.get(f"{cls_l}_health", 0.0)
+            hp = g.definition.health * (1 + base_pct)
+            hp = hp * (1 + spec_pct) + g.definition.health * spec_pct
 
             losses = max(int(raw / hp), 1)
             g.count = max(g.count - losses, 0)

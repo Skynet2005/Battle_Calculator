@@ -10,7 +10,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT / "server"))
 
 from expedition_battle_mechanics.bonus import BonusSource
-from expedition_battle_mechanics.combat_state import BattleReportInput
+from expedition_battle_mechanics.combat_state import BattleReportInput, CombatState
 from expedition_battle_mechanics.definitions import ExclusiveWeapon
 from expedition_battle_mechanics.formation import RallyFormation
 from expedition_battle_mechanics.hero import Hero
@@ -118,4 +118,45 @@ def test_bonus_source_aggregates_exclusive_weapons():
     )
     bs = BonusSource([h1, h2])
     assert bs.total_bonuses["attack"] == pytest.approx(0.3)
+
+
+def test_special_bonus_hits_harder_than_regular():
+    base_surv = _run(att_bonus=0.15)
+
+    atk_form, _ = _make_side()
+    def_form, def_bs = _make_side()
+    special_bs = BonusSource(atk_form.all_heroes(), territory_buffs={"attack": 0.15})
+    rpt = BattleReportInput(atk_form, def_form, special_bs, def_bs)
+    random.seed(0)
+    res = simulate_battle(rpt, max_rounds=1)
+    special_surv = res["defender"]["survivors"]["Infantry"]
+
+    assert special_surv < base_surv
+
+
+def test_special_bonus_formula_matches_wiki():
+    atk_form, _ = _make_side()
+    def_form, def_bs = _make_side()
+    special_bs = BonusSource(atk_form.all_heroes(), territory_buffs={"attack": 0.15})
+    rpt = BattleReportInput(atk_form, def_form, special_bs, def_bs)
+    state = CombatState(rpt)
+
+    random.seed(0)
+    dmg = state._compute_side_damage(
+        state.attacker_groups,
+        state.defender_groups,
+        state.attacker_bonus,
+        state.attacker_special,
+        "atk",
+    )
+    atk = state.attacker_groups["Infantry"]
+    deff = state.defender_groups["Infantry"]
+    ratio = atk.definition.power / (atk.definition.power + deff.definition.power)
+    eff_atk = atk.definition.attack
+    eff_atk = eff_atk * (1 + 0.15) + atk.definition.attack * 0.15
+    atk_mul, def_mul, dmg_mul = state._troop_skill_mods(atk, deff)
+    eff_atk *= atk_mul
+    eff_def = deff.definition.defense * def_mul
+    expected = max(eff_atk * ratio - eff_def, eff_atk * ratio * 0.01) * atk.count * dmg_mul
+    assert dmg["Infantry"] == pytest.approx(expected)
 
