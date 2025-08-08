@@ -9,6 +9,11 @@ side is processed exactly once.
 from __future__ import annotations
 from typing import Dict, Optional, Iterable
 from expedition_battle_mechanics.hero import Hero
+from expedition_battle_mechanics.stacking import (
+    AdditiveStrategy,
+    BonusBucket,
+    MaxStrategy,
+)
 
 
 class BonusSource:
@@ -49,22 +54,24 @@ class BonusSource:
             k.lower().replace("-", "_"): v for k, v in (pet_buffs or {}).items()
         }
 
-        # separate containers for regular and special bonuses
-        self.base_bonuses: Dict[str, float] = {}
-        self.special_bonuses: Dict[str, float] = {}
-        # backward compatible alias
+        # separate containers for regular and special bonuses using strategies
+        self._base_bucket = BonusBucket(AdditiveStrategy())
+        self._special_bucket = BonusBucket(MaxStrategy())
+        self.base_bonuses: Dict[str, float] = self._base_bucket.as_dict()
+        self.special_bonuses: Dict[str, float] = self._special_bucket.as_dict()
+        # backward compatible alias for existing code/tests
         self.total_bonuses = self.base_bonuses
 
         self._aggregate()
 
     # ------------------------------------------------------------------ #
     def _add_base(self, key: str, val: float) -> None:
-        """Utility – accumulate percentages from multiple sources."""
-        self.base_bonuses[key] = self.base_bonuses.get(key, 0.0) + val
+        """Add a regular bonus using the additive strategy."""
+        self._base_bucket.add(key, val)
 
     def _add_special(self, key: str, val: float) -> None:
-        """Utility – special bonuses take the highest value (no stacking)."""
-        self.special_bonuses[key] = max(self.special_bonuses.get(key, 0.0), val)
+        """Add a special bonus using the non-stacking (max) strategy."""
+        self._special_bucket.add(key, val)
 
     # ------------------------------------------------------------------ #
     def _aggregate(self) -> None:

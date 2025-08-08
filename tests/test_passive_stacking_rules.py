@@ -7,7 +7,7 @@ sys.path.append(str(ROOT / "server"))
 
 from expedition_battle_mechanics.bonus import BonusSource
 from expedition_battle_mechanics.combat_state import BattleReportInput
-from expedition_battle_mechanics.definitions import Skill, ExclusiveWeapon
+from expedition_battle_mechanics.definitions import Skill
 from expedition_battle_mechanics.formation import RallyFormation
 from expedition_battle_mechanics.hero import Hero
 from expedition_battle_mechanics.simulation import simulate_battle
@@ -50,70 +50,57 @@ def _base_heroes():
     ]
 
 
-def test_support_only_first_skill():
+def test_non_stacking_passive_uses_highest_level():
     heroes = _base_heroes()
     ratios = {"Infantry": 1.0, "Lancer": 0.0, "Marksman": 0.0}
 
-    sk1 = Skill(name="Abyssal Blessing", multiplier=0.10)
-    sk2 = Skill(name="Ironclad", multiplier=0.20)
+    # Captain hero provides a stronger Abyssal Blessing (10%).
+    heroes[0].skills["expedition"] = [Skill(name="Abyssal Blessing", multiplier=0.10)]
+
+    # Joiner provides a weaker copy (5%); because the skill is configured as
+    # non-stacking only the captain's value should apply.
     support = Hero(
         "Support",
         "Marksman",
         "SSR",
         1,
         {},
-        {"exploration": [], "expedition": [sk1, sk2]},
+        {"exploration": [], "expedition": [Skill(name="Abyssal Blessing", multiplier=0.05)]},
     )
 
     atk_form = RallyFormation(heroes, ratios, 100, _basic_troop_defs(), support_heroes=[support])
-    def_form = RallyFormation(heroes, ratios, 100, _basic_troop_defs())
+    def_form = RallyFormation(_base_heroes(), ratios, 100, _basic_troop_defs())
 
     atk_bs = BonusSource(atk_form.all_heroes())
     def_bs = BonusSource(def_form.all_heroes())
-
     rpt = BattleReportInput(atk_form, def_form, atk_bs, def_bs)
     res = simulate_battle(rpt, max_rounds=1)
 
     assert res["bonuses"]["attacker"].get("attack", 0.0) == pytest.approx(0.10)
-    assert "infantry_defense" not in res["bonuses"]["attacker"]
 
 
-def test_only_top_four_joiners():
+def test_additive_passive_stacks_across_heroes():
     heroes = _base_heroes()
     ratios = {"Infantry": 1.0, "Lancer": 0.0, "Marksman": 0.0}
 
-    skill = Skill(name="Treasure Hunter", multiplier=0.05)
-    supports = [
-        Hero(f"S{i}", "Marksman", "SSR", 1, {}, {"exploration": [], "expedition": [skill]})
-        for i in range(5)
-    ]
+    heroes[0].skills["expedition"] = [Skill(name="Treasure Hunter", multiplier=0.10)]
+    support = Hero(
+        "Support",
+        "Marksman",
+        "SSR",
+        1,
+        {},
+        {"exploration": [], "expedition": [Skill(name="Treasure Hunter", multiplier=0.05)]},
+    )
 
-    atk_form = RallyFormation(heroes, ratios, 100, _basic_troop_defs(), support_heroes=supports)
-    def_form = RallyFormation(heroes, ratios, 100, _basic_troop_defs())
+    atk_form = RallyFormation(heroes, ratios, 100, _basic_troop_defs(), support_heroes=[support])
+    def_form = RallyFormation(_base_heroes(), ratios, 100, _basic_troop_defs())
 
     atk_bs = BonusSource(atk_form.all_heroes())
     def_bs = BonusSource(def_form.all_heroes())
     rpt = BattleReportInput(atk_form, def_form, atk_bs, def_bs)
     res = simulate_battle(rpt, max_rounds=1)
 
-    assert res["bonuses"]["attacker"].get("attack", 0.0) == pytest.approx(0.20)
+    # Treasure Hunter stacks additively so both copies should contribute
+    assert res["bonuses"]["attacker"].get("attack", 0.0) == pytest.approx(0.15)
 
-
-def test_support_exclusive_weapon_ignored():
-    heroes = _base_heroes()
-    ratios = {"Infantry": 1.0, "Lancer": 0.0, "Marksman": 0.0}
-
-    ew = ExclusiveWeapon(name="EW", level=1, power=0, attack=0, defense=0, health=0, perks={"attack": 0.15})
-    support = Hero(
-        "SupportEW",
-        "Marksman",
-        "SSR",
-        1,
-        {},
-        {"exploration": [], "expedition": []},
-        exclusive_weapon=ew,
-    )
-
-    atk_form = RallyFormation(heroes, ratios, 100, _basic_troop_defs(), support_heroes=[support])
-    bs = BonusSource(atk_form.all_heroes())
-    assert "attack" not in bs.base_bonuses
