@@ -41,11 +41,25 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
 
   const detail: SimResult = (result as any).sample_battle ?? result;
 
-  const procStats = detail.proc_stats ?? {};
-  const passiveAtk = detail.passive_effects?.attacker ?? [];
-  const passiveDef = detail.passive_effects?.defender ?? [];
-  const bonusAtk = detail.bonuses?.attacker ?? {};
-  const bonusDef = detail.bonuses?.defender ?? {};
+  const procStats = detail.proc_stats ?? { attacker: {}, defender: {} };
+
+  const flattenPassives = (p: any): string[] =>
+    p ? ([] as string[]).concat(...(Object.values(p) as string[][])) : [];
+  const passiveAtk = flattenPassives(detail.passive_effects?.attacker);
+  const passiveDef = flattenPassives(detail.passive_effects?.defender);
+
+  const flattenBonus = (b: any) => {
+    const out: Record<string, number> = {};
+    if (!b) return out;
+    Object.entries(b).forEach(([grp, stats]) => {
+      Object.entries(stats as Record<string, number>).forEach(([stat, val]) => {
+        out[grp === "All" ? stat : `${grp.toLowerCase()}_${stat}`] = val as number;
+      });
+    });
+    return out;
+  };
+  const bonusAtk = flattenBonus(detail.bonuses?.attacker);
+  const bonusDef = flattenBonus(detail.bonuses?.defender);
 
   const attacker: SideDetails | undefined = (detail as any).attacker;
   const defender: SideDetails | undefined = (detail as any).defender;
@@ -74,23 +88,23 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
     [string, number][]
   >;
 
-  Object.entries(procStats).forEach(([key, count]) => {
-    const m = key.match(/^(.*)-(atk|def)(?:-(infantry|lancer|marksman))?$/);
-    if (!m) return;
-    const [, skill, side, cls] = m;
-
-    const pushHero = () =>
-      (side === "atk" ? heroProcsAtk : heroProcsDef).push([skill, count]);
-
-    if (cls && troopSkillSet.has(skill)) {
-      /* troop skill */
-      (side === "atk" ? troopProcsAtk : troopProcsDef)[
-        cls as "infantry" | "lancer" | "marksman"
-      ].push([skill, count]);
-    } else {
-      /* hero on-attack / on-turn skill */
-      pushHero();
-    }
+  Object.entries(procStats.attacker || {}).forEach(([skill, clsMap]) => {
+    Object.entries(clsMap as Record<string, number>).forEach(([cls, count]) => {
+      if (cls !== "All" && troopSkillSet.has(skill)) {
+        (troopProcsAtk as any)[cls.toLowerCase()].push([skill, count]);
+      } else {
+        heroProcsAtk.push([skill, count]);
+      }
+    });
+  });
+  Object.entries(procStats.defender || {}).forEach(([skill, clsMap]) => {
+    Object.entries(clsMap as Record<string, number>).forEach(([cls, count]) => {
+      if (cls !== "All" && troopSkillSet.has(skill)) {
+        (troopProcsDef as any)[cls.toLowerCase()].push([skill, count]);
+      } else {
+        heroProcsDef.push([skill, count]);
+      }
+    });
   });
 
   /* merge passives + hero procs, include % */
@@ -162,6 +176,60 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
               <Text style={[styles.tableCell, { flex: 1 }]}>
                 {Math.round(result.avg_defender_survivors ?? 0)}
               </Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {detail.power && (
+        <View style={{ marginBottom: 16 }}>
+          <Text style={styles.resultHeader}>Power & Damage</Text>
+          <View style={styles.tableContainer}>
+            <View style={styles.tableHeaderRow}>
+              <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Metric</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Attacker</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Defender</Text>
+            </View>
+            <View style={styles.tableRow}>
+              <Text style={[styles.tableCell, { flex: 2 }]}>Start Power</Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>
+                {detail.power.attacker.start}
+              </Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>
+                {detail.power.defender.start}
+              </Text>
+            </View>
+            <View style={styles.tableRow}>
+              <Text style={[styles.tableCell, { flex: 2 }]}>End Power</Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>
+                {detail.power.attacker.end}
+              </Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>
+                {detail.power.defender.end}
+              </Text>
+            </View>
+            <View style={styles.tableRow}>
+              <Text style={[styles.tableCell, { flex: 2 }]}>Damage Dealt</Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>
+                {detail.power.attacker.dealt}
+              </Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>
+                {detail.power.defender.dealt}
+              </Text>
+            </View>
+            <View style={styles.tableRow}>
+              <Text style={[styles.tableCell, { flex: 2 }]}>Power Diff Start</Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>
+                {detail.power.difference.start}
+              </Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}></Text>
+            </View>
+            <View style={styles.tableRow}>
+              <Text style={[styles.tableCell, { flex: 2 }]}>Power Diff End</Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>
+                {detail.power.difference.end}
+              </Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}></Text>
             </View>
           </View>
         </View>

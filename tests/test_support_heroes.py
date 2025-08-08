@@ -79,4 +79,7 @@ def test_support_hero_passive_applied():
     random.seed(0)
     res = simulate_battle(rpt, max_rounds=1)
 
-    assert res["bonuses"]["attacker"]["attack"] == pytest.approx(0.10)
+    assert (
+        res["bonuses"]["attacker"].get("All", {}).get("attack", 0.0)
+        == pytest.approx(0.10)
+    )

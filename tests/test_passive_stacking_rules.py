@@ -76,7 +76,10 @@ def test_non_stacking_passive_uses_highest_level():
     rpt = BattleReportInput(atk_form, def_form, atk_bs, def_bs)
     res = simulate_battle(rpt, max_rounds=1)
 
-    assert res["bonuses"]["attacker"].get("attack", 0.0) == pytest.approx(0.10)
+    assert (
+        res["bonuses"]["attacker"].get("All", {}).get("attack", 0.0)
+        == pytest.approx(0.10)
+    )
 
 
 def test_additive_passive_stacks_across_heroes():
@@ -102,5 +105,8 @@ def test_additive_passive_stacks_across_heroes():
     res = simulate_battle(rpt, max_rounds=1)
 
     # Treasure Hunter stacks additively so both copies should contribute
-    assert res["bonuses"]["attacker"].get("attack", 0.0) == pytest.approx(0.15)
+    assert (
+        res["bonuses"]["attacker"].get("All", {}).get("attack", 0.0)
+        == pytest.approx(0.15)
+    )
 

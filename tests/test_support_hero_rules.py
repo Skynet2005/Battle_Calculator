@@ -74,8 +74,11 @@ def test_support_only_first_skill():
     rpt = BattleReportInput(atk_form, def_form, atk_bs, def_bs)
     res = simulate_battle(rpt, max_rounds=1)
 
-    assert res["bonuses"]["attacker"].get("attack", 0.0) == pytest.approx(0.10)
-    assert "infantry_defense" not in res["bonuses"]["attacker"]
+    assert (
+        res["bonuses"]["attacker"].get("All", {}).get("attack", 0.0)
+        == pytest.approx(0.10)
+    )
+    assert res["bonuses"]["attacker"]["Infantry"].get("defense", 0.0) == 0
 
 
 def test_only_top_four_joiners():
@@ -96,7 +99,10 @@ def test_only_top_four_joiners():
     rpt = BattleReportInput(atk_form, def_form, atk_bs, def_bs)
     res = simulate_battle(rpt, max_rounds=1)
 
-    assert res["bonuses"]["attacker"].get("attack", 0.0) == pytest.approx(0.20)
+    assert (
+        res["bonuses"]["attacker"].get("All", {}).get("attack", 0.0)
+        == pytest.approx(0.20)
+    )
 
 
 def test_support_exclusive_weapon_ignored():

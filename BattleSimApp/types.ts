@@ -57,15 +57,42 @@
    }
 
    /** bullet-ready passive-skill log (added by backend) */
+   export interface PassiveEffectBuckets {
+     Infantry: string[];
+     Lancer: string[];
+     Marksman: string[];
+     All: string[];
+   }
+
    export interface PassiveEffects {
-     attacker: string[];  // e.g. ["Golden Guard +18% DEF", …]
-     defender: string[];
+     attacker: PassiveEffectBuckets;
+     defender: PassiveEffectBuckets;
+   }
+
+   interface BonusBuckets {
+     Infantry: Record<string, number>;
+     Lancer: Record<string, number>;
+     Marksman: Record<string, number>;
+     All: Record<string, number>;
    }
 
    /** final cumulative % bonuses after passives applied */
    export interface Bonuses {
-     attacker: Record<string, number>; // { attack: 0.22, defense: 0.12, … }
-     defender: Record<string, number>;
+     attacker: BonusBuckets;
+     defender: BonusBuckets;
+     attacker_special?: Record<string, number>;
+     defender_special?: Record<string, number>;
+   }
+
+   interface ProcBuckets {
+     attacker: Record<string, Record<string, number>>;
+     defender: Record<string, Record<string, number>>;
+   }
+
+   interface PowerStats {
+     attacker: { start: number; end: number; lost: number; dealt: number };
+     defender: { start: number; end: number; lost: number; dealt: number };
+     difference: { start: number; end: number };
    }
 
    /** root object returned by /api/simulate */
@@ -84,14 +111,17 @@
      attacker?: SideDetails;
      defender?: SideDetails;
 
-     /* server-side proc counter map  "SkillName-side" → count */
-     proc_stats?: Record<string, number>;
+     /* server-side proc counter buckets */
+     proc_stats?: ProcBuckets;
 
      /* NEW: bullet list of expedition-skill impacts */
      passive_effects?: PassiveEffects;
 
      /* NEW: merged % bonuses after buffs/debuffs */
      bonuses?: Bonuses;
+
+     /* power/damage breakdown */
+     power?: PowerStats;
 
      /* when sims > 1 the server includes the first run here */
      sample_battle?: SimResult;

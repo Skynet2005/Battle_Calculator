@@ -93,4 +93,4 @@ def test_support_hero_via_api(monkeypatch):
     res = client.post("/api/simulate", json=payload)
     assert res.status_code == 200
     data = res.json()
-    assert data["bonuses"]["attacker"]["attack"] == pytest.approx(0.10)
+    assert data["bonuses"]["attacker"]["All"]["attack"] == pytest.approx(0.10)

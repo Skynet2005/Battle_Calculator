@@ -15,7 +15,7 @@ NO SECTION ABBREVIATED.
 
 import logging
 from copy import deepcopy
-from typing import Any, Dict
+from typing import Any, Dict, List
 from collections import defaultdict
 
 from expedition_battle_mechanics.combat_state import (
@@ -84,6 +84,69 @@ def _hero_info(
     return out
 
 
+# ---------------------------------------------------------------------------
+def _structure_bonuses(bonus: Dict[str, float]) -> Dict[str, Dict[str, float]]:
+    """Group flat bonus mapping into class buckets plus an 'All' bucket."""
+    classes = ["Infantry", "Lancer", "Marksman"]
+    stats = ["attack", "defense", "lethality", "health"]
+    out: Dict[str, Dict[str, float]] = {
+        cls: {s: 0.0 for s in stats} for cls in classes
+    }
+    out["All"] = {s: 0.0 for s in stats}
+
+    for key, val in bonus.items():
+        if "_" in key:
+            cls, stat = key.split("_", 1)
+            out.setdefault(cls.capitalize(), {})
+            out[cls.capitalize()][stat] = val
+        else:
+            out["All"][key] = val
+    return out
+
+
+def _structure_passives(lines: List[str]) -> Dict[str, List[str]]:
+    """Categorise passive effect strings into troop classes or 'All'."""
+    out: Dict[str, List[str]] = {
+        "Infantry": [],
+        "Lancer": [],
+        "Marksman": [],
+        "All": [],
+    }
+    for ln in lines:
+        try:
+            after = ln.split(":", 1)[1].strip()
+            target = after.split()[0]
+            cls = target.split("-")[0]
+            cls_cap = cls.capitalize()
+            if cls_cap in out:
+                out[cls_cap].append(ln)
+            else:
+                out["All"].append(ln)
+        except Exception:
+            out["All"].append(ln)
+    return out
+
+
+def _structure_procs(proc: Dict[str, int]) -> Dict[str, Dict[str, Dict[str, int]]]:
+    """Split proc counters into side and class buckets."""
+    out: Dict[str, Dict[str, Dict[str, int]]] = {
+        "attacker": {},
+        "defender": {},
+    }
+    for key, cnt in proc.items():
+        parts = key.split("-")
+        if len(parts) == 2:
+            skill, side = parts
+            cls = "All"
+        else:
+            skill, side, cls = parts
+            cls = cls.capitalize()
+        side_key = "attacker" if side == "atk" else "defender"
+        skill_map = out[side_key].setdefault(skill, {})
+        skill_map[cls] = cnt
+    return out
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 def simulate_battle(
     report: BattleReportInput, max_rounds: int = 10_000
@@ -113,6 +176,23 @@ def simulate_battle(
     def_losses = def_total_start - def_total_end
     atk_total_kills = sum(atk_kills.values())
     def_total_kills = sum(def_kills.values())
+
+    atk_power_start = sum(
+        grp.definition.power * atk_start[cls]
+        for cls, grp in state.attacker_groups.items()
+    )
+    def_power_start = sum(
+        grp.definition.power * def_start[cls]
+        for cls, grp in state.defender_groups.items()
+    )
+    atk_power_end = sum(
+        grp.definition.power * atk_end[cls]
+        for cls, grp in state.attacker_groups.items()
+    )
+    def_power_end = sum(
+        grp.definition.power * def_end[cls]
+        for cls, grp in state.defender_groups.items()
+    )
 
     return {
         "winner": winner,
@@ -163,16 +243,34 @@ def simulate_battle(
                 "kill_pct": def_total_kills / atk_total_start if atk_total_start else 0,
             },
         },
-        "proc_stats": dict(state.skill_procs),
+        "proc_stats": _structure_procs(dict(state.skill_procs)),
         "passive_effects": {
-            "attacker": state.passive_effects["atk"],
-            "defender": state.passive_effects["def"],
+            "attacker": _structure_passives(state.passive_effects["atk"]),
+            "defender": _structure_passives(state.passive_effects["def"]),
         },
         "bonuses": {
-            "attacker": state.attacker_bonus,
-            "defender": state.defender_bonus,
+            "attacker": _structure_bonuses(state.attacker_bonus),
+            "defender": _structure_bonuses(state.defender_bonus),
             "attacker_special": state.attacker_special,
             "defender_special": state.defender_special,
+        },
+        "power": {
+            "attacker": {
+                "start": atk_power_start,
+                "end": atk_power_end,
+                "lost": atk_power_start - atk_power_end,
+                "dealt": def_power_start - def_power_end,
+            },
+            "defender": {
+                "start": def_power_start,
+                "end": def_power_end,
+                "lost": def_power_start - def_power_end,
+                "dealt": atk_power_start - atk_power_end,
+            },
+            "difference": {
+                "start": atk_power_start - def_power_start,
+                "end": atk_power_end - def_power_end,
+            },
         },
     }
 
@@ -193,14 +291,21 @@ def monte_carlo_battle(
         wins[res["winner"]] += 1
         atk_surv += sum(res["attacker"]["survivors"].values())
         def_surv += sum(res["defender"]["survivors"].values())
-        for k, v in res["proc_stats"].items():
-            proc_sum[k] += v
+        for side, skills in res["proc_stats"].items():
+            for skill, cls_map in skills.items():
+                for cls, cnt in cls_map.items():
+                    key = (
+                        f"{skill}-{side[:3]}"
+                        if cls == "All"
+                        else f"{skill}-{side[:3]}-{cls.lower()}"
+                    )
+                    proc_sum[key] += cnt
 
     return {
         "attacker_win_rate": wins["attacker"] / n_sims,
         "defender_win_rate": wins["defender"] / n_sims,
         "avg_attacker_survivors": atk_surv / n_sims,
         "avg_defender_survivors": def_surv / n_sims,
-        "proc_stats": dict(proc_sum),
+        "proc_stats": _structure_procs(dict(proc_sum)),
         "sample_battle": sample,
     }
