@@ -12,6 +12,7 @@ from dotenv import load_dotenv, find_dotenv
 import json
 import httpx
 import time
+from typing import Optional
 
 # raw data
 from hero_data.hero_loader import HEROES as RAW_HEROES
@@ -263,7 +264,6 @@ def analyze(req: AnalysisRequest):
         model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         if api_key and not os.getenv("DISABLE_OPENAI"):
             try:
-                openai_url = os.getenv("OPENAI_API_URL", "https://api.openai.com/v1/chat/completions")
                 system_prompt = (
                     "You are an expert Whiteout Survival Expedition/Rally battle analyst. "
                     "Use the provided mechanics summary as ground truth. Be concise, actionable, and specific. "
@@ -275,44 +275,100 @@ def analyze(req: AnalysisRequest):
                     "Return clear text, no JSON.\n\n"
                     f"Result: {json.dumps(req.result)[:120000]}"
                 )
-                headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-                payload = {
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    "temperature": 0.3,
-                }
+                # Prefer official OpenAI SDK (Responses API). Fallback to HTTP if unavailable.
                 max_retries = int(os.getenv("OPENAI_MAX_RETRIES", "3"))
                 backoff = float(os.getenv("OPENAI_RETRY_INITIAL", "1.0"))
-                last_err = None
-                for attempt in range(max_retries):
-                    try:
-                        with httpx.Client(timeout=60.0) as client:
-                            r = client.post(openai_url, headers=headers, json=payload)
-                            r.raise_for_status()
-                            data = r.json()
-                            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                last_err: Optional[Exception] = None
+                used_sdk = False
+                try:
+                    from openai import OpenAI as OpenAIClient
+                    # Derive base_url if provided
+                    base_url_env = os.getenv("OPENAI_API_BASE") or os.getenv("OPENAI_BASE_URL")
+                    if not base_url_env:
+                        # attempt to convert OPENAI_API_URL (endpoint) to base_url
+                        url_env = os.getenv("OPENAI_API_URL")
+                        if url_env and "/v1/" in url_env:
+                            base_url_env = url_env.split("/v1/")[0] + "/v1"
+
+                    client_kwargs = {"api_key": api_key}
+                    if base_url_env:
+                        client_kwargs["base_url"] = base_url_env
+                    sdk_client = OpenAIClient(**client_kwargs)
+
+                    for attempt in range(max_retries):
+                        try:
+                            sdk_resp = sdk_client.responses.create(
+                                model=model,
+                                input=(
+                                    "System:\n" + system_prompt + "\n\n" +
+                                    user_prompt
+                                ),
+                                temperature=0.3,
+                            )
+                            # Extract text
+                            content = getattr(sdk_resp, "output_text", None)
+                            if not content:
+                                try:
+                                    content = sdk_resp.to_dict().get("output_text")
+                                except Exception:
+                                    content = str(sdk_resp)
                             if content:
+                                used_sdk = True
                                 return {"analysis": content}
-                            last_err = Exception("Empty OpenAI content")
+                            last_err = Exception("Empty OpenAI SDK content")
                             break
-                    except httpx.HTTPStatusError as he:
-                        last_err = he
-                        status = he.response.status_code
-                        if status in (429, 500, 502, 503, 504) and attempt < max_retries - 1:
-                            retry_after = he.response.headers.get("Retry-After")
-                            sleep_s = float(retry_after) if retry_after else backoff
-                            time.sleep(sleep_s)
-                            backoff *= 2
-                            continue
-                        break
-                    except Exception as e_inner:
-                        last_err = e_inner
-                        break
-                if last_err:
-                    raise last_err
+                        except Exception as oe:
+                            last_err = oe
+                            # Simple retry on rate/5xx
+                            msg = str(oe)
+                            should_retry = any(code in msg for code in ["429", "500", "502", "503", "504"]) and attempt < max_retries - 1
+                            if should_retry:
+                                time.sleep(backoff)
+                                backoff *= 2
+                                continue
+                            break
+                except Exception as import_err:
+                    last_err = import_err
+                    used_sdk = False
+
+                if not used_sdk:
+                    # Fallback to HTTP Completions
+                    openai_url = os.getenv("OPENAI_API_URL", "https://api.openai.com/v1/chat/completions")
+                    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+                    payload = {
+                        "model": model,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        "temperature": 0.3,
+                    }
+                    for attempt in range(max_retries):
+                        try:
+                            with httpx.Client(timeout=60.0) as client:
+                                r = client.post(openai_url, headers=headers, json=payload)
+                                r.raise_for_status()
+                                data = r.json()
+                                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                                if content:
+                                    return {"analysis": content}
+                                last_err = Exception("Empty OpenAI content")
+                                break
+                        except httpx.HTTPStatusError as he:
+                            last_err = he
+                            status = he.response.status_code
+                            if status in (429, 500, 502, 503, 504) and attempt < max_retries - 1:
+                                retry_after = he.response.headers.get("Retry-After")
+                                sleep_s = float(retry_after) if retry_after else backoff
+                                time.sleep(sleep_s)
+                                backoff *= 2
+                                continue
+                            break
+                        except Exception as e_inner:
+                            last_err = e_inner
+                            break
+                    if last_err:
+                        raise last_err
             except Exception as e:
                 # Fall back to heuristic if LLM fails
                 # Surface minimal error context for troubleshooting
