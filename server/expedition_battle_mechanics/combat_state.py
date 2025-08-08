@@ -23,6 +23,8 @@ from expedition_battle_mechanics.hero import Hero
 
 # passive expedition buffs
 from expedition_battle_mechanics.skill_handlers.passive import PASSIVE_SKILLS
+from expedition_battle_mechanics.skill_handlers import get_passive_strategy
+from expedition_battle_mechanics.stacking import BonusBucket
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -116,21 +118,45 @@ class CombatState:
     #   passive-buff aggregation
     # ─────────────────────────────────────────────────────────────────────
     def _apply_passives(self) -> None:
-        def make_adder(
-            own: Dict[str, float],
-            enemy: Dict[str, float],
-            label: str,
-            skill_name: str,
-        ) -> Callable[[str, float], None]:
-            def _add(key: str, pct: float) -> None:
+        # Collect all passive effects per (side, skill) so that stacking rules
+        # can be applied according to rally mechanics (additive vs. highest).
+        effects: Dict[tuple[str, str], BonusBucket] = {}
+
+        heroes = self.attacker_all_heroes + self.defender_all_heroes
+        for hero in heroes:
+            for sk in hero.skills["expedition"]:
+                handler = PASSIVE_SKILLS.get(sk.name)
+                if not handler:
+                    continue
+
+                lvl = hero.selected_skill_levels.get(sk.name, 5)
+                collected: list[tuple[str, float]] = []
+
+                def _collect(key: str, pct: float) -> None:
+                    collected.append((key, pct))
+
+                handler(hero, lvl, _collect)
+
+                bucket = effects.setdefault(
+                    (hero.side, sk.name), BonusBucket(get_passive_strategy(sk.name))
+                )
+                for key, pct in collected:
+                    bucket.add(key, pct)
+
+        # Apply aggregated effects to bonus dictionaries
+        for (side, skill_name), bucket in effects.items():
+            own = self.attacker_bonus if side == "atk" else self.defender_bonus
+            enemy = self.defender_bonus if side == "atk" else self.attacker_bonus
+
+            for key, pct in bucket.as_dict().items():
                 if key.startswith("enemy-"):
                     stat = key.replace("enemy-", "").replace("-down", "")
                     stat_key = stat.replace("-", "_")
                     enemy[stat_key] = enemy.get(stat_key, 0.0) - pct
-                    self.passive_effects[label].append(
+                    self.passive_effects[side].append(
                         f"{skill_name}: {stat} {pct*100:+.1f}%  (enemy)"
                     )
-                    return
+                    continue
 
                 if "-" in key:
                     cls, stat = key.split("-", 1)
@@ -140,28 +166,9 @@ class CombatState:
                     stat_key = key
                     display = key
                 own[stat_key] = own.get(stat_key, 0.0) + pct
-                self.passive_effects[label].append(
+                self.passive_effects[side].append(
                     f"{skill_name}: {display} {pct*100:+.1f}%"
                 )
-
-            return _add
-
-        heroes = self.attacker_all_heroes + self.defender_all_heroes
-        for hero in heroes:
-            for sk in hero.skills["expedition"]:
-                handler = PASSIVE_SKILLS.get(sk.name)
-                if handler:
-                    lvl = hero.selected_skill_levels.get(sk.name, 5)
-                    handler(
-                        hero,
-                        lvl,
-                        make_adder(
-                            self.attacker_bonus if hero.side == "atk" else self.defender_bonus,
-                            self.defender_bonus if hero.side == "atk" else self.attacker_bonus,
-                            hero.side,
-                            sk.name,
-                        ),
-                    )
 
     # ------------------------------------------------------------------ #
     def add_temp_bonus(self, side: str, key: str, pct: float, turns: int) -> None:
