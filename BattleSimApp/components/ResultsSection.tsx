@@ -17,7 +17,7 @@ import { SideDetails, SimResult } from "../types";
 
 /* ────────────────────────────────────────────────────────────── */
 
-  const troopSkillSet = new Set([
+const troopSkillSet = new Set([
   "Crystal Shield",
   "Body of Light",
   "Crystal Lance",
@@ -290,20 +290,20 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
             </TouchableOpacity>
           </View>
           {!collapsed.attacker && (
-        <SideBlock
-          label="Attacker"
-          colourStyle={styles.attackerText}
-          detail={detail}
-          winSide="attacker"
-            passives={buildLines(passiveAtk, sortAndLimit(heroProcsAtk, viewMode === 'compact' ? 6 : 12), pctAtk)}
-          bonus={bonusAtk}
-            troopProcs={{
-              infantry: sortAndLimit(troopProcsAtk.infantry, viewMode === 'compact' ? 4 : 8),
-              lancer: sortAndLimit(troopProcsAtk.lancer, viewMode === 'compact' ? 4 : 8),
-              marksman: sortAndLimit(troopProcsAtk.marksman, viewMode === 'compact' ? 4 : 8),
-            }}
-          sideDetails={attacker}
-          />
+            <SideBlock
+              label="Attacker"
+              colourStyle={styles.attackerText}
+              detail={detail}
+              winSide="attacker"
+              passives={buildLines(passiveAtk, sortAndLimit(heroProcsAtk, viewMode === 'compact' ? 6 : 12), pctAtk)}
+              bonus={bonusAtk}
+              troopProcs={{
+                infantry: sortAndLimit(troopProcsAtk.infantry, viewMode === 'compact' ? 4 : 8),
+                lancer: sortAndLimit(troopProcsAtk.lancer, viewMode === 'compact' ? 4 : 8),
+                marksman: sortAndLimit(troopProcsAtk.marksman, viewMode === 'compact' ? 4 : 8),
+              }}
+              sideDetails={attacker}
+            />
           )}
         </View>
         <View style={{ flex: 1, paddingHorizontal: 6, minWidth: 0 }}>
@@ -314,20 +314,20 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
             </TouchableOpacity>
           </View>
           {!collapsed.defender && (
-        <SideBlock
-          label="Defender"
-          colourStyle={styles.defenderText}
-          detail={detail}
-          winSide="defender"
-            passives={buildLines(passiveDef, sortAndLimit(heroProcsDef, viewMode === 'compact' ? 6 : 12), pctDef)}
-          bonus={bonusDef}
-            troopProcs={{
-              infantry: sortAndLimit(troopProcsDef.infantry, viewMode === 'compact' ? 4 : 8),
-              lancer: sortAndLimit(troopProcsDef.lancer, viewMode === 'compact' ? 4 : 8),
-              marksman: sortAndLimit(troopProcsDef.marksman, viewMode === 'compact' ? 4 : 8),
-            }}
-          sideDetails={defender}
-          />
+            <SideBlock
+              label="Defender"
+              colourStyle={styles.defenderText}
+              detail={detail}
+              winSide="defender"
+              passives={buildLines(passiveDef, sortAndLimit(heroProcsDef, viewMode === 'compact' ? 6 : 12), pctDef)}
+              bonus={bonusDef}
+              troopProcs={{
+                infantry: sortAndLimit(troopProcsDef.infantry, viewMode === 'compact' ? 4 : 8),
+                lancer: sortAndLimit(troopProcsDef.lancer, viewMode === 'compact' ? 4 : 8),
+                marksman: sortAndLimit(troopProcsDef.marksman, viewMode === 'compact' ? 4 : 8),
+              }}
+              sideDetails={defender}
+            />
           )}
         </View>
       </View>
@@ -337,8 +337,21 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
           <Text style={styles.buttonText}>{aiBusy ? "Analyzing…" : "Analyze Battle (AI)"}</Text>
         </TouchableOpacity>
         {aiText && (
-          <View style={[styles.row, { backgroundColor: '#1F2937' }]}> 
-            <Text style={{ color: '#E5E7EB' }}>{aiText}</Text>
+          <View style={[styles.row, { backgroundColor: '#1F2937' }]}>
+            <Text
+              style={{
+                color: '#E5E7EB',
+                ...(Platform.OS === 'web'
+                  ? {
+                      whiteSpace: 'pre-wrap' as any,
+                      fontFamily:
+                        'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                    }
+                  : {}),
+              }}
+            >
+              {aiText}
+            </Text>
           </View>
         )}
       </View>
@@ -498,23 +511,23 @@ const SideBlock: React.FC<SBProps> = ({
               <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Kills</Text>
               <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Survivors</Text>
             </View>
-          {(["Infantry", "Lancer", "Marksman"] as const).map((cls) => (
-            <View key={cls} style={styles.tableRow}>
-              <Text style={[styles.tableCell, { flex: 2 }]}>{cls}</Text>
-              <View style={[{ flex: 1, flexDirection: 'row', alignItems: 'center' }]}>
-                <Text style={[styles.tableCell, { flex: undefined, width: 50, textAlign: 'right' }]}>{sideDetails.kills?.[cls] ?? 0}</Text>
-                <View style={styles.barTrack}>
-                  <View style={[styles.barFill, { width: `${Math.min(100, Math.round(((sideDetails.kills?.[cls] ?? 0) / maxKill) * 100))}%` }]} />
+            {(["Infantry", "Lancer", "Marksman"] as const).map((cls) => (
+              <View key={cls} style={styles.tableRow}>
+                <Text style={[styles.tableCell, { flex: 2 }]}>{cls}</Text>
+                <View style={[{ flex: 1, flexDirection: 'row', alignItems: 'center' }]}>
+                  <Text style={[styles.tableCell, { flex: undefined, width: 50, textAlign: 'right' }]}>{sideDetails.kills?.[cls] ?? 0}</Text>
+                  <View style={styles.barTrack}>
+                    <View style={[styles.barFill, { width: `${Math.min(100, Math.round(((sideDetails.kills?.[cls] ?? 0) / maxKill) * 100))}%` }]} />
+                  </View>
+                </View>
+                <View style={[{ flex: 1, flexDirection: 'row', alignItems: 'center' }]}>
+                  <Text style={[styles.tableCell, { flex: undefined, width: 50, textAlign: 'right' }]}>{sideDetails.survivors?.[cls] ?? 0}</Text>
+                  <View style={styles.barTrack}>
+                    <View style={[styles.barFill, { width: `${Math.min(100, Math.round(((sideDetails.survivors?.[cls] ?? 0) / maxSurv) * 100))}%` }]} />
+                  </View>
                 </View>
               </View>
-              <View style={[{ flex: 1, flexDirection: 'row', alignItems: 'center' }]}>
-                <Text style={[styles.tableCell, { flex: undefined, width: 50, textAlign: 'right' }]}>{sideDetails.survivors?.[cls] ?? 0}</Text>
-                <View style={styles.barTrack}>
-                  <View style={[styles.barFill, { width: `${Math.min(100, Math.round(((sideDetails.survivors?.[cls] ?? 0) / maxSurv) * 100))}%` }]} />
-                </View>
-              </View>
-            </View>
-          ))}
+            ))}
           </View>
 
           {/* Move Details table here */}
@@ -535,7 +548,7 @@ const SideBlock: React.FC<SBProps> = ({
                 <Text style={[styles.tableCell, { flex: 2 }]}>{h.name}</Text>
                 <Text style={[styles.tableCell, { flex: 1 }]}>{h.generation}</Text>
                 <Text style={[styles.tableCell, { flex: 1 }]}>{cls}</Text>
-                <Text style={[styles.tableCell, { flex: 1 }]}> 
+                <Text style={[styles.tableCell, { flex: 1 }]}>
                   {h.exclusive_weapon?.level ?? "-"}
                 </Text>
                 <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.count_start)}</Text>
@@ -555,21 +568,21 @@ const SideBlock: React.FC<SBProps> = ({
             </View>
             {Object.entries(sideDetails.heroes).map(([cls, h]: [string, any]) => (
               <View key={cls} style={styles.tableRow}>
-              <Text style={[styles.tableCell, { flex: 2 }]}>{h.name}</Text>
-              <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.count_lost)}</Text>
-              <View style={[{ flex: 1, flexDirection: 'row', alignItems: 'center' }]}>
-                <Text style={[styles.tableCell, { flex: undefined, width: 48, textAlign: 'right' }]}>{(h.loss_pct * 100).toFixed(1)}%</Text>
-                <View style={styles.barTrack}>
-                  <View style={[styles.barFill, { width: `${Math.min(100, Math.round(h.loss_pct * 100))}%`, backgroundColor: '#F59E0B' }]} />
+                <Text style={[styles.tableCell, { flex: 2 }]}>{h.name}</Text>
+                <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.count_lost)}</Text>
+                <View style={[{ flex: 1, flexDirection: 'row', alignItems: 'center' }]}>
+                  <Text style={[styles.tableCell, { flex: undefined, width: 48, textAlign: 'right' }]}>{(h.loss_pct * 100).toFixed(1)}%</Text>
+                  <View style={styles.barTrack}>
+                    <View style={[styles.barFill, { width: `${Math.min(100, Math.round(h.loss_pct * 100))}%`, backgroundColor: '#F59E0B' }]} />
+                  </View>
                 </View>
-              </View>
-              <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.kills)}</Text>
-              <View style={[{ flex: 1, flexDirection: 'row', alignItems: 'center' }]}>
-                <Text style={[styles.tableCell, { flex: undefined, width: 48, textAlign: 'right' }]}>{(h.kill_pct * 100).toFixed(1)}%</Text>
-                <View style={styles.barTrack}>
-                  <View style={[styles.barFill, { width: `${Math.min(100, Math.round(h.kill_pct * 100))}%`, backgroundColor: '#10B981' }]} />
+                <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.kills)}</Text>
+                <View style={[{ flex: 1, flexDirection: 'row', alignItems: 'center' }]}>
+                  <Text style={[styles.tableCell, { flex: undefined, width: 48, textAlign: 'right' }]}>{(h.kill_pct * 100).toFixed(1)}%</Text>
+                  <View style={styles.barTrack}>
+                    <View style={[styles.barFill, { width: `${Math.min(100, Math.round(h.kill_pct * 100))}%`, backgroundColor: '#10B981' }]} />
+                  </View>
                 </View>
-              </View>
               </View>
             ))}
           </View>
