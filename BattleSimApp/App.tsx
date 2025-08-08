@@ -18,6 +18,7 @@ import {
 import { ConfigSection } from "./components/ConfigSection";
 import { ResultsSection } from "./components/ResultsSection";
 import { SideSetup } from "./components/SideSetup";
+import { JoinerRow } from "./components/JoinerRow";
 
 /* ─────────────── Main Component ─────────────── */
 export default function App() {
@@ -37,6 +38,9 @@ export default function App() {
   const [defH, setDefH] = useState<ClassSel>(emptySel);
   const [atkT, setAtkT] = useState<ClassSel>(emptySel);
   const [defT, setDefT] = useState<ClassSel>(emptySel);
+
+  const [atkSupport, setAtkSupport] = useState<string[]>(["", "", "", ""]);
+  const [defSupport, setDefSupport] = useState<string[]>(["", "", "", ""]);
 
   const [atkSlots, setAtkSlots] = useState<{ [cls in Class]: string }>({
     Infantry: "1",
@@ -107,6 +111,10 @@ export default function App() {
     sims: parseInt(sims, 10),
     attackerTroops: atkT,
     defenderTroops: defT,
+    attackerSupportHeroes:
+      attackType === "rally" ? atkSupport.filter((h) => h) : [],
+    defenderSupportHeroes:
+      attackType === "rally" ? defSupport.filter((h) => h) : [],
   });
 
   const runSim = () => {
@@ -168,6 +176,46 @@ export default function App() {
         setSlotSel={setDefSlots}
         setRatioSel={setDefRatios}
       />
+
+      {attackType === "rally" && (
+        <>
+          <Text style={styles.subHeader}>Attacker Joiners</Text>
+          {atkSupport.map((sel, idx) => (
+            <JoinerRow
+              key={`atk-joiner-${idx}`}
+              side="atk"
+              idx={idx}
+              heroes={heroes}
+              selected={sel}
+              onChange={(v) =>
+                setAtkSupport((s) => {
+                  const arr = [...s];
+                  arr[idx] = v;
+                  return arr;
+                })
+              }
+            />
+          ))}
+
+          <Text style={styles.subHeader}>Defender Joiners</Text>
+          {defSupport.map((sel, idx) => (
+            <JoinerRow
+              key={`def-joiner-${idx}`}
+              side="def"
+              idx={idx}
+              heroes={heroes}
+              selected={sel}
+              onChange={(v) =>
+                setDefSupport((s) => {
+                  const arr = [...s];
+                  arr[idx] = v;
+                  return arr;
+                })
+              }
+            />
+          ))}
+        </>
+      )}
 
       {/* config + run */}
       <ConfigSection
