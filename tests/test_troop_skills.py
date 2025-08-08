@@ -71,7 +71,7 @@ def test_infantry_defense_against_lancer():
     inf = state.defender_groups["Infantry"]
     with patch("random.random", return_value=1.0):
         atk_mul, def_mul, dmg_mul = state._troop_skill_mods(lan, inf)
-    assert atk_mul == pytest.approx(1.0)
+    assert atk_mul == pytest.approx(0.90)
     assert def_mul == pytest.approx(1.06 * 1.10)
     assert dmg_mul == pytest.approx(1.0)
 

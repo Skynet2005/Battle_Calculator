@@ -23,6 +23,8 @@ from expedition_battle_mechanics.hero import Hero
 
 # passive expedition buffs
 from expedition_battle_mechanics.skill_handlers.passive import PASSIVE_SKILLS
+from expedition_battle_mechanics.skill_handlers import get_passive_strategy
+from expedition_battle_mechanics.stacking import BonusBucket
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -116,21 +118,45 @@ class CombatState:
     #   passive-buff aggregation
     # ─────────────────────────────────────────────────────────────────────
     def _apply_passives(self) -> None:
-        def make_adder(
-            own: Dict[str, float],
-            enemy: Dict[str, float],
-            label: str,
-            skill_name: str,
-        ) -> Callable[[str, float], None]:
-            def _add(key: str, pct: float) -> None:
+        # Collect all passive effects per (side, skill) so that stacking rules
+        # can be applied according to rally mechanics (additive vs. highest).
+        effects: Dict[tuple[str, str], BonusBucket] = {}
+
+        heroes = self.attacker_all_heroes + self.defender_all_heroes
+        for hero in heroes:
+            for sk in hero.skills["expedition"]:
+                handler = PASSIVE_SKILLS.get(sk.name)
+                if not handler:
+                    continue
+
+                lvl = hero.selected_skill_levels.get(sk.name, 5)
+                collected: list[tuple[str, float]] = []
+
+                def _collect(key: str, pct: float) -> None:
+                    collected.append((key, pct))
+
+                handler(hero, lvl, _collect)
+
+                bucket = effects.setdefault(
+                    (hero.side, sk.name), BonusBucket(get_passive_strategy(sk.name))
+                )
+                for key, pct in collected:
+                    bucket.add(key, pct)
+
+        # Apply aggregated effects to bonus dictionaries
+        for (side, skill_name), bucket in effects.items():
+            own = self.attacker_bonus if side == "atk" else self.defender_bonus
+            enemy = self.defender_bonus if side == "atk" else self.attacker_bonus
+
+            for key, pct in bucket.as_dict().items():
                 if key.startswith("enemy-"):
                     stat = key.replace("enemy-", "").replace("-down", "")
                     stat_key = stat.replace("-", "_")
                     enemy[stat_key] = enemy.get(stat_key, 0.0) - pct
-                    self.passive_effects[label].append(
+                    self.passive_effects[side].append(
                         f"{skill_name}: {stat} {pct*100:+.1f}%  (enemy)"
                     )
-                    return
+                    continue
 
                 if "-" in key:
                     cls, stat = key.split("-", 1)
@@ -140,28 +166,9 @@ class CombatState:
                     stat_key = key
                     display = key
                 own[stat_key] = own.get(stat_key, 0.0) + pct
-                self.passive_effects[label].append(
+                self.passive_effects[side].append(
                     f"{skill_name}: {display} {pct*100:+.1f}%"
                 )
-
-            return _add
-
-        heroes = self.attacker_all_heroes + self.defender_all_heroes
-        for hero in heroes:
-            for sk in hero.skills["expedition"]:
-                handler = PASSIVE_SKILLS.get(sk.name)
-                if handler:
-                    lvl = hero.selected_skill_levels.get(sk.name, 5)
-                    handler(
-                        hero,
-                        lvl,
-                        make_adder(
-                            self.attacker_bonus if hero.side == "atk" else self.defender_bonus,
-                            self.defender_bonus if hero.side == "atk" else self.attacker_bonus,
-                            hero.side,
-                            sk.name,
-                        ),
-                    )
 
     # ------------------------------------------------------------------ #
     def add_temp_bonus(self, side: str, key: str, pct: float, turns: int) -> None:
@@ -319,6 +326,31 @@ class CombatState:
             key = f"{cls.lower()}_{stat}"
             return src.get(stat, 0.0) + src.get(key, 0.0)
 
+        def _select_target(atk_group: TroopGroup) -> tuple[str, TroopGroup] | None:
+            alive = {k: g for k, g in defenders.items() if g.count > 0}
+            if not alive:
+                return None
+
+            cls = atk_group.class_name
+            order: list[str]
+            if cls == "Marksman":
+                order = ["Infantry", "Lancer", "Marksman"]
+            elif cls == "Infantry":
+                order = ["Lancer", "Marksman", "Infantry"]
+            else:  # Lancer
+                # 20% chance to bypass Infantry and strike Marksmen
+                if "Marksman" in alive and random.random() < 0.20:
+                    order = ["Marksman", "Infantry", "Lancer"]
+                else:
+                    order = ["Infantry", "Marksman", "Lancer"]
+
+            for t in order:
+                if t in alive:
+                    return t, alive[t]
+            # fallback: return any alive group
+            k, g = next(iter(alive.items()))
+            return k, g
+
         for cls, atk in attackers.items():
             if atk.count <= 0:
                 continue
@@ -341,7 +373,6 @@ class CombatState:
             )
             atk_stat = atk_stat * (1 + spec_pct) + atk.definition.attack * spec_pct
 
-            # lethality stat – bypasses defense and chips health directly
             leth_base = cls_bonus(bonus_combined, cls, "lethality")
             leth_spec = cls_bonus(special_combined, cls, "lethality")
             leth_stat = atk.definition.lethality * (
@@ -349,35 +380,41 @@ class CombatState:
             )
             leth_stat = leth_stat * (1 + leth_spec) + atk.definition.lethality * leth_spec
 
+            target = _select_target(atk)
+            if not target:
+                continue
+            dcls, deff = target
+
+            atk_mul, def_mul, dmg_mul = self._troop_skill_mods(atk, deff)
+
+            def_base_pct = cls_bonus(enemy_bonus_combined, dcls, "defense")
+            def_spec_pct = cls_bonus(enemy_special_combined, dcls, "defense")
+            def_stat = deff.definition.defense * (
+                1 + def_base_pct + deff.definition.stat_bonuses.get("Defense", 0.0)
+            )
+            def_stat = def_stat * (1 + def_spec_pct) + deff.definition.defense * def_spec_pct
+            def_stat *= 1 + deff.temp_def_bonus
+
+            eff_atk = atk_stat * atk_mul
+            eff_leth = leth_stat * atk_mul
+            eff_def = def_stat * def_mul
+
+            ratio = atk.definition.power / (
+                atk.definition.power + deff.definition.power
+            )
+            per_troop = max(eff_atk * ratio - eff_def, eff_atk * ratio * 0.01)
+            per_troop += eff_leth * ratio
+            base = per_troop * atk.count * dmg_mul
+
+            dmg[dcls] += base
+
+        total_enemy = sum(d.count for d in defenders.values() if d.count > 0)
+        if total_enemy > 0 and extra_pool > 0:
             for dcls, deff in defenders.items():
                 if deff.count <= 0:
                     continue
-
-                atk_mul, def_mul, dmg_mul = self._troop_skill_mods(atk, deff)
-
-                def_base_pct = cls_bonus(enemy_bonus_combined, dcls, "defense")
-                def_spec_pct = cls_bonus(enemy_special_combined, dcls, "defense")
-                def_stat = deff.definition.defense * (
-                    1 + def_base_pct + deff.definition.stat_bonuses.get("Defense", 0.0)
-                )
-                def_stat = def_stat * (1 + def_spec_pct) + deff.definition.defense * def_spec_pct
-                def_stat *= 1 + deff.temp_def_bonus
-
-                eff_atk = atk_stat * atk_mul
-                eff_leth = leth_stat * atk_mul
-                eff_def = def_stat * def_mul
-
-                ratio = atk.definition.power / (
-                    atk.definition.power + deff.definition.power
-                )
-                per_troop = max(eff_atk * ratio - eff_def, eff_atk * ratio * 0.01)
-                per_troop += eff_leth * ratio
-                base = per_troop * atk.count * dmg_mul
-
                 share = deff.count / total_enemy
-                extra = extra_pool * share
-
-                dmg[dcls] += base + extra
+                dmg[dcls] += extra_pool * share
 
         # bucket consumed
         self._extra_damage[side] = 0.0
@@ -409,6 +446,8 @@ class CombatState:
         if atk.class_name == "Lancer":
             if deff.class_name == "Marksman":
                 atk_mul *= 1.10  # Charge
+            elif deff.class_name == "Infantry":
+                atk_mul *= 0.90  # suffers vs Infantry
             if random.random() < 0.15:
                 atk_mul *= 2.0  # Crystal Lance
                 self._proc("Crystal Lance", "atk", atk.class_name.lower())
