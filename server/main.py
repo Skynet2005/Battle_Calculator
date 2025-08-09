@@ -3,7 +3,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, validator, Field
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 import os
 from dotenv import load_dotenv, find_dotenv
 import json
@@ -27,6 +27,10 @@ from expedition_battle_mechanics.loader       import hero_from_dict
 from expedition_battle_mechanics.combat_state import BattleReportInput
 from expedition_battle_mechanics.formation    import RallyFormation
 from expedition_battle_mechanics.bonus        import BonusSource
+# chief gear & charms data
+from chief_gear import CHIEF_GEAR_DATA as chief_gear_data
+from chief_charms import CHIEF_CHARMS_DATA as chief_charms_data
+
 
 
 # -----------------------------
@@ -59,6 +63,8 @@ _ANALYZE_CACHE: Dict[str, tuple[float, str]] = {}  # key: hash -> (ts, text)
 class SimRequest(BaseModel):
     attackerHeroes:        List[str]
     defenderHeroes:        List[str]
+    attackerEwLevels:      List[int] = Field(default_factory=list)
+    defenderEwLevels:      List[int] = Field(default_factory=list)
     attackerRatios:        Dict[str, float]
     defenderRatios:        Dict[str, float]
     attackerCapacity:      int
@@ -68,6 +74,11 @@ class SimRequest(BaseModel):
     defenderTroops:        Dict[str, str]
     attackerSupportHeroes: List[str] = Field(default_factory=list)
     defenderSupportHeroes: List[str] = Field(default_factory=list)
+    # Chief Gear & Charms (percent values in percent units, e.g., 12.5 means +12.5%)
+    attackerGear:          Optional[Dict[str, float]] = None  # { attackPct?, defensePct? }
+    defenderGear:          Optional[Dict[str, float]] = None
+    attackerCharms:        Optional[Dict[str, float]] = None  # { lethalityPct?, healthPct? }
+    defenderCharms:        Optional[Dict[str, float]] = None
 
     @validator("attackerRatios", "defenderRatios")
     def check_ratios_sum(cls, v):
@@ -86,6 +97,54 @@ class SimRequest(BaseModel):
 
 class AnalysisRequest(BaseModel):
     result: Dict[str, Any]
+
+
+class ChiefGearItem(BaseModel):
+    item: str  # "Cap" | "Coat" | "Ring" | "Watch" | "Pants" | "Weapon"
+    tier: str  # exact label as in chief_gear_data e.g., "Red (Legendary) T2 Step 3"
+    stars: int
+
+class ChiefGearRequest(BaseModel):
+    items: List[ChiefGearItem]
+
+class ChiefGearTotals(BaseModel):
+    total_attack_pct: float
+    total_defense_pct: float
+    total_power: int
+    set_bonus_attack_pct: float
+    set_bonus_defense_pct: float
+    breakdown: Dict[str, Dict[str, float]]
+    # Created Logic for review: class-specific base stats (EXCLUDES set bonuses)
+    infantry_attack_pct: float = 0.0
+    infantry_defense_pct: float = 0.0
+    lancer_attack_pct: float = 0.0
+    lancer_defense_pct: float = 0.0
+    marksman_attack_pct: float = 0.0
+    marksman_defense_pct: float = 0.0
+    infantry_power: int = 0
+    lancer_power: int = 0
+    marksman_power: int = 0
+
+class ChiefCharmsRequest(BaseModel):
+    # 3 charms per gear slot item; user provides levels for each of the 3 charms
+    # Example payload per slot: { "Cap": [1, 16, 4], ... }
+    levels_by_slot: Dict[str, List[int]]
+
+class ChiefCharmsTotals(BaseModel):
+    total_lethality_pct: float
+    total_health_pct: float
+    total_power: int
+    breakdown: Dict[str, Dict[str, float]]
+    # Created Logic for review: class-specific totals from slot mapping
+    infantry_lethality_pct: float = 0.0
+    infantry_health_pct: float = 0.0
+    lancer_lethality_pct: float = 0.0
+    lancer_health_pct: float = 0.0
+    marksman_lethality_pct: float = 0.0
+    marksman_health_pct: float = 0.0
+    infantry_power: int = 0
+    lancer_power: int = 0
+    marksman_power: int = 0
 
 
 # -----------------------------
@@ -214,8 +273,18 @@ def get_troops():
 def run_simulation(req: SimRequest):
     # Resolve heroes
     try:
-        atk_heroes = [hero_from_dict(RAW_HEROES[n]) for n in req.attackerHeroes]
-        def_heroes = [hero_from_dict(RAW_HEROES[n]) for n in req.defenderHeroes]
+        # Created Logic for review: apply Exclusive Weapon level per hero in order (1-10)
+        def _ew_for(idx: int, arr: List[int]) -> int | None:
+            try:
+                lvl = int(arr[idx]) if idx < len(arr) else None
+            except Exception:
+                lvl = None
+            if lvl is None:
+                return None
+            return max(1, min(10, int(lvl)))
+
+        atk_heroes = [hero_from_dict(RAW_HEROES[n], ew_level=_ew_for(i, req.attackerEwLevels)) for i, n in enumerate(req.attackerHeroes)]
+        def_heroes = [hero_from_dict(RAW_HEROES[n], ew_level=_ew_for(i, req.defenderEwLevels)) for i, n in enumerate(req.defenderHeroes)]
         atk_support = [hero_from_dict(RAW_HEROES[n]) for n in req.attackerSupportHeroes]
         def_support = [hero_from_dict(RAW_HEROES[n]) for n in req.defenderSupportHeroes]
     except KeyError as e:
@@ -250,9 +319,35 @@ def run_simulation(req: SimRequest):
         support_heroes=def_support,
     )
 
+    # Merge external buffs from Gear/Charms (convert percent → decimal)
+    def _mk_city_buffs(gear: Optional[Dict[str, float]], charms: Optional[Dict[str, float]]) -> Dict[str, float]:
+        city: Dict[str, float] = {}
+        if gear:
+            # Only use class-specific mapping to avoid double-counting
+            for cls in ("infantry", "lancer", "marksman"):
+                ca = float(gear.get(f"{cls}_attack_pct", 0.0)) / 100.0
+                cd = float(gear.get(f"{cls}_defense_pct", 0.0)) / 100.0
+                if ca:
+                    city[f"{cls}_attack"] = city.get(f"{cls}_attack", 0.0) + ca
+                if cd:
+                    city[f"{cls}_defense"] = city.get(f"{cls}_defense", 0.0) + cd
+        if charms:
+            # Only use class-specific mapping
+            for cls in ("infantry", "lancer", "marksman"):
+                le = float(charms.get(f"{cls}_lethality_pct", 0.0)) / 100.0
+                hp = float(charms.get(f"{cls}_health_pct", 0.0)) / 100.0
+                if le:
+                    city[f"{cls}_lethality"] = city.get(f"{cls}_lethality", 0.0) + le
+                if hp:
+                    city[f"{cls}_health"] = city.get(f"{cls}_health", 0.0) + hp
+        return city
+
+    atk_city_buffs = _mk_city_buffs(req.attackerGear, req.attackerCharms)
+    def_city_buffs = _mk_city_buffs(req.defenderGear, req.defenderCharms)
+
     # Bonus sources (aggregate from all heroes, including rally joiners)
-    atk_bonus = BonusSource(atk_form.all_heroes())
-    def_bonus = BonusSource(def_form.all_heroes())
+    atk_bonus = BonusSource(atk_form.all_heroes(), city_buffs=atk_city_buffs)
+    def_bonus = BonusSource(def_form.all_heroes(), city_buffs=def_city_buffs)
 
     rpt = BattleReportInput(atk_form, def_form, atk_bonus, def_bonus)
 
@@ -260,6 +355,282 @@ def run_simulation(req: SimRequest):
     if req.sims <= 1:
         return simulate_battle(rpt)
     return monte_carlo_battle(rpt, n_sims=req.sims)
+
+
+# -----------------------------
+# Chief Gear helpers + routes
+# -----------------------------
+
+_GEAR_SLOTS: Tuple[str, ...] = ("Cap", "Coat", "Ring", "Watch", "Pants", "Weapon")
+
+def _parse_pct(s: str) -> float:
+    try:
+        return float(str(s).replace("%", ""))
+    except Exception:
+        return 0.0
+
+def _find_gear_entry(slot: str, tier: str, stars: int) -> Optional[dict]:
+    rows = chief_gear_data.get(slot)
+    if not rows:
+        return None
+    for row in rows:
+        if str(row.get("Tier")) == tier and int(row.get("Stars", 0)) == int(stars):
+            return row
+    return None
+
+
+@app.get("/api/gear/chief/slots", response_model=List[str])
+def get_chief_gear_slots():
+    return list(_GEAR_SLOTS)
+
+
+@app.get("/api/gear/chief/options", response_model=Dict[str, List[Dict[str, Any]]])
+def get_chief_gear_options():
+    """
+    Returns for each slot the list of { tier, stars, attackPct, defensePct, power } options.
+    """
+    out: Dict[str, List[Dict[str, Any]]] = {}
+    for slot in _GEAR_SLOTS:
+        rows = chief_gear_data.get(slot, [])
+        out[slot] = [
+            {
+                "tier": r.get("Tier"),
+                "stars": r.get("Stars"),
+                "attackPct": _parse_pct(r.get("Attack", 0)),
+                "defensePct": _parse_pct(r.get("Defense", 0)),
+                "power": int(r.get("Power Total", 0)),
+            }
+            for r in rows
+        ]
+    return out
+
+
+@app.post("/api/gear/chief/calc", response_model=ChiefGearTotals)
+def calc_chief_gear(req: ChiefGearRequest):
+    # Sum base stats
+    total_attack_pct = 0.0
+    total_defense_pct = 0.0
+    total_power = 0
+    breakdown: Dict[str, Dict[str, float]] = {}
+
+    chosen_tiers: Dict[str, str] = {}
+    chosen_stars: Dict[str, int] = {}
+
+    # class-specific buckets (base only)
+    infantry_attack_pct = infantry_defense_pct = 0.0
+    lancer_attack_pct = lancer_defense_pct = 0.0
+    marksman_attack_pct = marksman_defense_pct = 0.0
+    infantry_power = lancer_power = marksman_power = 0
+
+    for it in req.items:
+        if it.item not in _GEAR_SLOTS:
+            raise HTTPException(422, f"Unknown gear slot: {it.item}")
+        row = _find_gear_entry(it.item, it.tier, it.stars)
+        if not row:
+            raise HTTPException(422, f"No data for {it.item} {it.tier} ★{it.stars}")
+        a = _parse_pct(row.get("Attack", 0))
+        d = _parse_pct(row.get("Defense", 0))
+        p = int(row.get("Power Total", 0))
+        breakdown[it.item] = {"attackPct": a, "defensePct": d, "power": float(p)}
+        total_attack_pct += a
+        total_defense_pct += d
+        total_power += p
+        chosen_tiers[it.item] = it.tier
+        chosen_stars[it.item] = int(it.stars)
+
+        # Map slot → class for base stats
+        if it.item in ("Coat", "Pants"):
+            infantry_attack_pct += a
+            infantry_defense_pct += d
+        elif it.item in ("Cap", "Watch"):
+            lancer_attack_pct += a
+            lancer_defense_pct += d
+            lancer_power += p
+        elif it.item in ("Ring", "Weapon"):
+            marksman_attack_pct += a
+            marksman_defense_pct += d
+            marksman_power += p
+
+    # Set bonuses – use authoritative mapping from chief_gear.SET_BONUSES
+    set_bonus_attack_pct = 0.0
+    set_bonus_defense_pct = 0.0
+
+    from chief_gear import SET_BONUSES
+
+    def _normalize_set_key(raw_tier: str, stars: int) -> str:
+        tier = str(raw_tier)
+        # Uncommon
+        if "Uncommon" in tier:
+            # Uncommon has a special T1 only for 1-star
+            return "Uncommon T1" if stars == 1 or "T1" in tier else "Uncommon"
+        # Rare with star-dependent variants
+        if "Rare" in tier:
+            if stars == 0:
+                return "Rare"
+            return f"Rare ({stars}-star)"
+        # Epic (Purple)
+        if "Epic" in tier:
+            return "Epic T1" if "T1" in tier else "Epic"
+        # Mythic (Gold)
+        if "Mythic" in tier:
+            if "T2" in tier:
+                return "Mythic T2"
+            if "T1" in tier:
+                return "Mythic T1"
+            return "Mythic"
+        # Legendary (Red) has Step N and T1/T2/T3 Step N → ignore step when mapping
+        if "Legendary" in tier:
+            if "T3" in tier:
+                return "Legendary T3"
+            if "T2" in tier:
+                return "Legendary T2"
+            if "T1" in tier:
+                return "Legendary T1"
+            return "Legendary"
+        # Fallback to the raw tier (may yield 0 bonus if missing in map)
+        return tier
+
+    # For defense: head set (Cap, Coat, Ring)
+    cap_tier = chosen_tiers.get("Cap")
+    coat_tier = chosen_tiers.get("Coat")
+    ring_tier = chosen_tiers.get("Ring")
+    if cap_tier and coat_tier and ring_tier:
+        cap_key = _normalize_set_key(cap_tier, chosen_stars.get("Cap", 0))
+        coat_key = _normalize_set_key(coat_tier, chosen_stars.get("Coat", 0))
+        ring_key = _normalize_set_key(ring_tier, chosen_stars.get("Ring", 0))
+        if cap_key == coat_key == ring_key:
+            set_def = SET_BONUSES.get(cap_key)
+        if set_def is not None:
+            set_bonus_defense_pct += float(set_def)
+
+    # For attack: weapon set (Watch, Pants, Weapon)
+    watch_tier = chosen_tiers.get("Watch")
+    pants_tier = chosen_tiers.get("Pants")
+    weapon_tier = chosen_tiers.get("Weapon")
+    if watch_tier and pants_tier and weapon_tier:
+        watch_key = _normalize_set_key(watch_tier, chosen_stars.get("Watch", 0))
+        pants_key = _normalize_set_key(pants_tier, chosen_stars.get("Pants", 0))
+        weapon_key = _normalize_set_key(weapon_tier, chosen_stars.get("Weapon", 0))
+        if watch_key == pants_key == weapon_key:
+            set_atk = SET_BONUSES.get(watch_key)
+        if set_atk is not None:
+            set_bonus_attack_pct += float(set_atk)
+
+    # Totals include set bonuses
+    total_attack_pct_with_bonus = total_attack_pct + set_bonus_attack_pct
+    total_defense_pct_with_bonus = total_defense_pct + set_bonus_defense_pct
+
+    # Also allocate set bonuses to each troop class bucket (applies to all classes)
+    infantry_attack_pct += set_bonus_attack_pct
+    lancer_attack_pct += set_bonus_attack_pct
+    marksman_attack_pct += set_bonus_attack_pct
+    infantry_defense_pct += set_bonus_defense_pct
+    lancer_defense_pct += set_bonus_defense_pct
+    marksman_defense_pct += set_bonus_defense_pct
+
+    return ChiefGearTotals(
+        total_attack_pct=round(total_attack_pct_with_bonus, 2),
+        total_defense_pct=round(total_defense_pct_with_bonus, 2),
+        total_power=int(total_power),
+        set_bonus_attack_pct=round(set_bonus_attack_pct, 2),
+        set_bonus_defense_pct=round(set_bonus_defense_pct, 2),
+        breakdown=breakdown,
+        infantry_attack_pct=round(infantry_attack_pct, 2),
+        infantry_defense_pct=round(infantry_defense_pct, 2),
+        lancer_attack_pct=round(lancer_attack_pct, 2),
+        lancer_defense_pct=round(lancer_defense_pct, 2),
+        marksman_attack_pct=round(marksman_attack_pct, 2),
+        marksman_defense_pct=round(marksman_defense_pct, 2),
+        infantry_power=int(infantry_power),
+        lancer_power=int(lancer_power),
+        marksman_power=int(marksman_power),
+    )
+
+
+@app.get("/api/gear/chief/charms/options", response_model=List[Dict[str, Any]])
+def get_chief_charms_options():
+    """
+    Returns a flat list of charm level options with fields { level, lethalityPct, healthPct, power }.
+    """
+    return [
+        {
+            "level": r.get("Level"),
+            "lethalityPct": float(r.get("Lethality", 0)) * 100.0,
+            "healthPct": float(r.get("Health", 0)) * 100.0,
+            "power": int(r.get("Power_Total", 0)),
+        }
+        for r in chief_charms_data
+    ]
+
+
+@app.post("/api/gear/chief/charms/calc", response_model=ChiefCharmsTotals)
+def calc_chief_charms(req: ChiefCharmsRequest):
+    # Created Logic for review: charms are per slot; each slot has 3 charms; sum their stats
+    # Acceptable slots reuse the same chief gear slots
+    total_lethality_pct = 0.0
+    total_health_pct = 0.0
+    total_power = 0
+    breakdown: Dict[str, Dict[str, float]] = {}
+
+    levels_to_row: Dict[int, Dict[str, Any]] = {int(r["Level"]): r for r in chief_charms_data}
+
+    # class-specific buckets based on slot mapping like gear
+    infantry_lethality_pct = infantry_health_pct = 0.0
+    lancer_lethality_pct = lancer_health_pct = 0.0
+    marksman_lethality_pct = marksman_health_pct = 0.0
+    infantry_power = lancer_power = marksman_power = 0
+
+    for slot, levels in req.levels_by_slot.items():
+        if slot not in ("Cap", "Coat", "Ring", "Watch", "Pants", "Weapon"):
+            raise HTTPException(422, f"Unknown slot for charms: {slot}")
+        if not isinstance(levels, list) or len(levels) != 3:
+            raise HTTPException(422, f"Slot {slot} must provide exactly 3 charm levels")
+
+        slot_leth = 0.0
+        slot_hp = 0.0
+        slot_pow = 0
+        for lv in levels:
+            row = levels_to_row.get(int(lv))
+            if not row:
+                raise HTTPException(422, f"Invalid charm level {lv} for {slot}")
+            slot_leth += float(row.get("Lethality", 0)) * 100.0
+            slot_hp += float(row.get("Health", 0)) * 100.0
+            slot_pow += int(row.get("Power_Total", 0))
+
+        breakdown[slot] = {"lethalityPct": slot_leth, "healthPct": slot_hp, "power": float(slot_pow)}
+        total_lethality_pct += slot_leth
+        total_health_pct += slot_hp
+        total_power += slot_pow
+
+        # distribute to classes by slot
+        if slot in ("Coat", "Pants"):
+            infantry_lethality_pct += slot_leth
+            infantry_health_pct += slot_hp
+            infantry_power += slot_pow
+        elif slot in ("Cap", "Watch"):
+            lancer_lethality_pct += slot_leth
+            lancer_health_pct += slot_hp
+            lancer_power += slot_pow
+        elif slot in ("Ring", "Weapon"):
+            marksman_lethality_pct += slot_leth
+            marksman_health_pct += slot_hp
+            marksman_power += slot_pow
+
+    return ChiefCharmsTotals(
+        total_lethality_pct=round(total_lethality_pct, 2),
+        total_health_pct=round(total_health_pct, 2),
+        total_power=int(total_power),
+        breakdown=breakdown,
+        infantry_lethality_pct=round(infantry_lethality_pct, 2),
+        infantry_health_pct=round(infantry_health_pct, 2),
+        lancer_lethality_pct=round(lancer_lethality_pct, 2),
+        lancer_health_pct=round(lancer_health_pct, 2),
+        marksman_lethality_pct=round(marksman_lethality_pct, 2),
+        marksman_health_pct=round(marksman_health_pct, 2),
+        infantry_power=int(infantry_power),
+        lancer_power=int(lancer_power),
+        marksman_power=int(marksman_power),
+    )
 
 
 # -----------------------------

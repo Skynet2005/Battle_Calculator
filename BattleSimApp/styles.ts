@@ -52,6 +52,9 @@ export const styles = StyleSheet.create({
           elevation: 2,
         }),
   },
+  centerAlign: { alignItems: "center" },
+  inlineRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "center", gap: 12, flexWrap: "wrap" },
+  halfCol: { flex: 1, minWidth: 260 },
 
   /* labels + colours */
   label: { marginBottom: 8, fontSize: 16, color: "#E5E7EB", fontWeight: "500" },
@@ -80,6 +83,15 @@ export const styles = StyleSheet.create({
     backgroundColor: "#374151",
     fontSize: 16,
     color: "#E5E7EB",
+  },
+  smallInput: { width: 75, textAlign: 'center' },
+  pickerContainer: {
+    backgroundColor: "#111827",
+    borderColor: "#374151",
+    borderWidth: 1,
+    borderRadius: 6,
+    marginVertical: 4,
+    marginHorizontal: 6,
   },
   errorInput: {
     borderColor: "#DC2626",

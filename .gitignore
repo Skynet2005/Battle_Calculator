@@ -1,11 +1,35 @@
-Archive/
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# Project specific
+Archive/
 
-# dependencies
+# Node.js dependencies
 node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
 
 # Expo
 .expo/
@@ -15,6 +39,10 @@ expo-env.d.ts
 
 # Native
 .kotlin/
+android/.gradle
+android/app/build
+ios/Pods/
+ios/build/
 *.orig.*
 *.jks
 *.p8
@@ -22,24 +50,34 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
-# Metro
+# Metro bundler
 .metro-health-check*
 
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
 
 # macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
 *.pem
 
-# local env files
-.env*.local
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# typescript
-*.tsbuildinfo
-
-# secrets
+# Environment variables and secrets
 .env
 .env.*
+!.env.example
+
+# TypeScript
+*.tsbuildinfo

@@ -46,9 +46,11 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
   const flattenBonus = (b: any) => {
     const out: Record<string, number> = {};
     if (!b) return out;
+    // Ignore the All bucket in display. Backend now propagates All => each class.
     Object.entries(b).forEach(([grp, stats]) => {
+      if (grp === "All") return;
       Object.entries(stats as Record<string, number>).forEach(([stat, val]) => {
-        out[grp === "All" ? stat : `${grp.toLowerCase()}_${stat}`] = val as number;
+        out[`${grp.toLowerCase()}_${stat}`] = val as number;
       });
     });
     return out;

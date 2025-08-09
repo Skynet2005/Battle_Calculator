@@ -126,3 +126,66 @@
      /* when sims > 1 the server includes the first run here */
      sample_battle?: SimResult;
    }
+
+   // Chief gear types
+   export type ChiefGearSlot = "Cap" | "Coat" | "Ring" | "Watch" | "Pants" | "Weapon";
+
+   export interface ChiefGearOption {
+     tier: string;
+     stars: number;
+     attackPct: number;
+     defensePct: number;
+     power: number;
+   }
+
+   export type ChiefGearOptionsBySlot = { [slot in ChiefGearSlot]: ChiefGearOption[] };
+
+   export interface ChiefGearSelectionItem {
+     item: ChiefGearSlot;
+     tier: string;
+     stars: number;
+   }
+
+   export interface ChiefGearTotals {
+     total_attack_pct: number;
+     total_defense_pct: number;
+     total_power: number;
+     set_bonus_attack_pct: number;
+     set_bonus_defense_pct: number;
+     breakdown: Record<string, { attackPct: number; defensePct: number; power: number }>;
+  // Created Logic for review: class-specific base totals (percent, without set bonuses)
+  infantry_attack_pct: number;
+  infantry_defense_pct: number;
+  lancer_attack_pct: number;
+  lancer_defense_pct: number;
+  marksman_attack_pct: number;
+  marksman_defense_pct: number;
+  infantry_power: number;
+  lancer_power: number;
+  marksman_power: number;
+   }
+
+   // Chief Charms types
+   export interface ChiefCharmOption {
+     level: number;
+     lethalityPct: number;
+     healthPct: number;
+     power: number;
+   }
+
+   export interface ChiefCharmsTotals {
+     total_lethality_pct: number;
+     total_health_pct: number;
+     total_power: number;
+     breakdown: Record<string, { lethalityPct: number; healthPct: number; power: number }>;
+  // Created Logic for review: class-specific totals
+  infantry_lethality_pct: number;
+  infantry_health_pct: number;
+  lancer_lethality_pct: number;
+  lancer_health_pct: number;
+  marksman_lethality_pct: number;
+  marksman_health_pct: number;
+  infantry_power: number;
+  lancer_power: number;
+  marksman_power: number;
+   }

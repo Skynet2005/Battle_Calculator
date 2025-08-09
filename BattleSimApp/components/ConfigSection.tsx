@@ -17,12 +17,13 @@ interface Props {
 
   onRun: () => void;
   isRunning?: boolean;
+  hideRunButton?: boolean;
 }
 
 export const ConfigSection: React.FC<Props> = (p) => (
   <View style={styles.configSection}>
-    {/* solo/rally radio */}
-    <View style={styles.row}>
+    {/* Attack Type centered */}
+    <View style={[styles.row, styles.centerAlign]}> 
       <Text style={styles.label}>Attack Type</Text>
       <View style={styles.radioContainer}>
         {(["solo", "rally"] as const).map((opt) => (
@@ -45,39 +46,41 @@ export const ConfigSection: React.FC<Props> = (p) => (
       </View>
     </View>
 
-    {/* attacker and defender capacity */}
-    <View style={styles.row}>
-      <Text style={styles.label}>
-        Attacker {p.attackType === "rally" ? "Rally" : "March"} Capacity
-      </Text>
-      <TextInput
-        style={styles.input}
-        value={p.attackerCapacity}
-        onChangeText={p.setAttackerCapacity}
-        keyboardType="number-pad"
-        placeholderTextColor="#7B8794"
-        editable={!p.isRunning}
-      />
-    </View>
-    <View style={styles.row}>
-      <Text style={styles.label}>
-        Defender {p.attackType === "rally" ? "Rally" : "March"} Capacity
-      </Text>
-      <TextInput
-        style={styles.input}
-        value={p.defenderCapacity}
-        onChangeText={p.setDefenderCapacity}
-        keyboardType="number-pad"
-        placeholderTextColor="#7B8794"
-        editable={!p.isRunning}
-      />
+    {/* capacities side-by-side, centered between */}
+    <View style={[styles.row, styles.inlineRow]}> 
+      <View style={styles.halfCol}>
+        <Text style={styles.label}>
+          Attacker {p.attackType === "rally" ? "Rally" : "March"} Capacity
+        </Text>
+        <TextInput
+          style={[styles.input]}
+          value={p.attackerCapacity}
+          onChangeText={p.setAttackerCapacity}
+          keyboardType="number-pad"
+          placeholderTextColor="#7B8794"
+          editable={!p.isRunning}
+        />
+      </View>
+      <View style={styles.halfCol}>
+        <Text style={styles.label}>
+          Defender {p.attackType === "rally" ? "Rally" : "March"} Capacity
+        </Text>
+        <TextInput
+          style={[styles.input]}
+          value={p.defenderCapacity}
+          onChangeText={p.setDefenderCapacity}
+          keyboardType="number-pad"
+          placeholderTextColor="#7B8794"
+          editable={!p.isRunning}
+        />
+      </View>
     </View>
 
-    {/* sim count */}
-    <View style={styles.row}>
+    {/* Sim count centered */}
+    <View style={[styles.row, styles.centerAlign]}> 
       <Text style={styles.label}>Sim Count</Text>
       <TextInput
-        style={styles.input}
+        style={[styles.input, styles.smallInput]}
         value={p.sims}
         onChangeText={p.setSims}
         keyboardType="number-pad"
@@ -86,20 +89,21 @@ export const ConfigSection: React.FC<Props> = (p) => (
       />
     </View>
 
-    {/* run button */}
-    <TouchableOpacity
-      onPress={p.onRun}
-      disabled={!!p.isRunning}
-      style={[styles.buttonContainer, p.isRunning && styles.disabledButton]}
-    >
-      {p.isRunning ? (
-        <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8 }}>
-          <ActivityIndicator color="#F1F5F9" />
-          <Text style={styles.buttonText}>Running…</Text>
-        </View>
-      ) : (
-        <Text style={styles.buttonText}>Run Simulation</Text>
-      )}
-    </TouchableOpacity>
+    {!p.hideRunButton && (
+      <TouchableOpacity
+        onPress={p.onRun}
+        disabled={!!p.isRunning}
+        style={[styles.buttonContainer, p.isRunning && styles.disabledButton]}
+      >
+        {p.isRunning ? (
+          <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8 }}>
+            <ActivityIndicator color="#F1F5F9" />
+            <Text style={styles.buttonText}>Running…</Text>
+          </View>
+        ) : (
+          <Text style={styles.buttonText}>Run Simulation</Text>
+        )}
+      </TouchableOpacity>
+    )}
   </View>
 );

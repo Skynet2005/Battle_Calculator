@@ -101,6 +101,12 @@ def _structure_bonuses(bonus: Dict[str, float]) -> Dict[str, Dict[str, float]]:
             out[cls.capitalize()][stat] = val
         else:
             out["All"][key] = val
+
+    # Created Logic for review: propagate All-bucket stats to each troop class for clarity in reports
+    # This does NOT affect battle calculations; it's only for the returned reporting structure
+    for cls in classes:
+        for stat in stats:
+            out[cls][stat] = out[cls].get(stat, 0.0) + out["All"].get(stat, 0.0)
     return out
 
 

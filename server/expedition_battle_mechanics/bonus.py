@@ -84,9 +84,16 @@ class BonusSource:
                     self._add_base(k.replace("-", "_").lower(), v)
 
         # 2) external permanent buffs
+        #    Accept both generic and class-specific keys; map class-specific
+        #    ones to our internal convention of "{class}_{stat}".
         for src in (self.city_buffs, self.pet_buffs):
             for k, v in src.items():
-                self._add_base(k, v)
+                key = k
+                # normalize keys like "infantry_attack" to "infantry_attack"
+                # and also accept camel or dash separators
+                key = key.replace("-", "_")
+                key = key.lower()
+                self._add_base(key, v)
 
         for k, v in self.special_buffs.items():
             self._add_special(k, v)

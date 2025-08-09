@@ -366,7 +366,11 @@ class CombatState:
                     lvl = hero.selected_skill_levels.get(sk.name, 5)
                     handler(self, side, atk, hero, lvl)
 
-            base_pct = cls_bonus(bonus_combined, cls, "attack")
+            # include class-specific attack bonuses e.g., "lancer_attack"
+            base_pct = (
+                cls_bonus(bonus_combined, cls, "attack")
+                + bonus_combined.get(f"{cls.lower()}_attack", 0.0)
+            )
             spec_pct = cls_bonus(special_combined, cls, "attack")
             atk_stat = atk.definition.attack * (
                 1 + base_pct + atk.definition.stat_bonuses.get("Attack", 0.0)
@@ -387,7 +391,11 @@ class CombatState:
 
             atk_mul, def_mul, dmg_mul = self._troop_skill_mods(atk, deff)
 
-            def_base_pct = cls_bonus(enemy_bonus_combined, dcls, "defense")
+            # include class-specific defense bonuses e.g., "infantry_defense"
+            def_base_pct = (
+                cls_bonus(enemy_bonus_combined, dcls, "defense")
+                + enemy_bonus_combined.get(f"{dcls.lower()}_defense", 0.0)
+            )
             def_spec_pct = cls_bonus(enemy_special_combined, dcls, "defense")
             def_stat = deff.definition.defense * (
                 1 + def_base_pct + deff.definition.stat_bonuses.get("Defense", 0.0)

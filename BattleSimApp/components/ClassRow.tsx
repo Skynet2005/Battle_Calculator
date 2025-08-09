@@ -15,10 +15,12 @@ interface Props {
   heroSel: string;
   troopSel: string;
   slot: string;
+  ewLevel: string;
   ratio: string;
   setHero: (name: string) => void;
   setTroop: (name: string) => void;
   setSlot: (slot: string) => void;
+  setEwLevel: (lvl: string) => void;
   setRatio: (ratio: string) => void;
   disabled?: boolean;
   maxPercent?: number; // Created Logic for review: upper bound for slider based on remaining allowance per side
@@ -122,14 +124,6 @@ export const ClassRow: React.FC<Props> = (p) => {
       <Text style={[styles.label, col]}>
         {p.cls} Hero {p.side === "atk" ? "(Attacker)" : "(Defender)"}
       </Text>
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Search hero..."
-        placeholderTextColor="#7B8794"
-        value={heroQuery}
-        onChangeText={setHeroQuery}
-        editable={!p.disabled}
-      />
       <View style={styles.slotPickerContainer}>
         <Text style={[styles.slotLabel, col]}>Slot:</Text>
         <Picker
@@ -143,6 +137,19 @@ export const ClassRow: React.FC<Props> = (p) => {
           <Picker.Item label="1" value="1" color="#FFFFFF" />
           <Picker.Item label="2" value="2" color="#FFFFFF" />
           <Picker.Item label="3" value="3" color="#FFFFFF" />
+        </Picker>
+        <Text style={[styles.slotLabel, col, { marginLeft: 16 }]}>Exclusive Weapon Lv:</Text>
+        <Picker
+          selectedValue={p.ewLevel}
+          onValueChange={p.setEwLevel}
+          style={[styles.slotPicker, pickStyle, { width: 50 }]}
+          dropdownIconColor="#FFFFFF"
+          itemStyle={{ color: "#FFFFFF" }}
+          enabled={!p.disabled}
+        >
+          {Array.from({ length: 10 }).map((_, i) => (
+            <Picker.Item key={`ew-${i+1}`} label={`${i+1}`} value={`${i+1}`} color="#FFFFFF" />
+          ))}
         </Picker>
       </View>
       <Picker
