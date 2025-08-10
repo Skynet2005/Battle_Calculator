@@ -127,6 +127,53 @@
      sample_battle?: SimResult;
    }
 
+// User auth & settings types
+export interface AuthState {
+  token: string | null;
+  username: string | null;
+}
+
+export type ChiefGearSelectionMap = Record<string, { tier: string; stars: number }>;
+export type ChiefCharmLevelsMap = Record<string, [number, number, number]>;
+
+export interface SavedSettingsData {
+  // Created Logic for review: full snapshot of app selections
+  attackType: "solo" | "rally";
+  attackerCapacity: string;
+  defenderCapacity: string;
+  sims: string;
+  atkH: ClassSel;
+  defH: ClassSel;
+  atkT: ClassSel;
+  defT: ClassSel;
+  atkSlots: { [cls in Class]: string };
+  defSlots: { [cls in Class]: string };
+  atkEwLevels: { [cls in Class]: string };
+  defEwLevels: { [cls in Class]: string };
+  atkRatios: { [cls in Class]: string };
+  defRatios: { [cls in Class]: string };
+  atkSupport: string[];
+  defSupport: string[];
+  atkResearch?: any | null;
+  defResearch?: any | null;
+  // Detailed research selections so UI can be restored
+  atkResearchSelection?: ResearchSelection | null;
+  defResearchSelection?: ResearchSelection | null;
+  // Gear selections per side
+  atkGearSelection?: ChiefGearSelectionMap | null;
+  defGearSelection?: ChiefGearSelectionMap | null;
+  // Charm levels per slot per side
+  atkCharmLevels?: ChiefCharmLevelsMap | null;
+  defCharmLevels?: ChiefCharmLevelsMap | null;
+  // Chief Skin bonuses per side
+  atkChiefSkinBonuses?: ChiefSkinBonuses | null;
+  defChiefSkinBonuses?: ChiefSkinBonuses | null;
+}
+
+// Research selection snapshot for restoring UI
+export type ResearchSelectionRow = { category: string; selectedTier: string; selectedLevel: number };
+export type ResearchSelection = ResearchSelectionRow[];
+
    // Chief gear types
    export type ChiefGearSlot = "Cap" | "Coat" | "Ring" | "Watch" | "Pants" | "Weapon";
 
@@ -165,6 +212,32 @@
   marksman_power: number;
    }
 
+  // Research types
+  export interface ResearchNode {
+    category: string;
+    tier_label: string;
+    level: number;
+    power: number;
+    stat_name: string;
+    value: number;
+  }
+
+  // Aggregate research buffs (percent values, e.g., 3.5 => 3.5%)
+  export interface ResearchBuffs {
+    infantry_attack_pct?: number;
+    infantry_defense_pct?: number;
+    infantry_lethality_pct?: number;
+    infantry_health_pct?: number;
+    lancer_attack_pct?: number;
+    lancer_defense_pct?: number;
+    lancer_lethality_pct?: number;
+    lancer_health_pct?: number;
+    marksman_attack_pct?: number;
+    marksman_defense_pct?: number;
+    marksman_lethality_pct?: number;
+    marksman_health_pct?: number;
+  }
+
    // Chief Charms types
    export interface ChiefCharmOption {
      level: number;
@@ -189,3 +262,11 @@
   lancer_power: number;
   marksman_power: number;
    }
+
+// Chief Skin bonuses - applies to all troop types (Infantry, Lancer, Marksman)
+export type ChiefSkinBonuses = {
+  troops_lethality_pct: number;  // 0-150%
+  troops_health_pct: number;     // 0-150%
+  troops_defense_pct: number;    // 0-150%
+  troops_attack_pct: number;     // 0-150%
+};

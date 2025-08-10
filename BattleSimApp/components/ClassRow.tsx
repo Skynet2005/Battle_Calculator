@@ -4,6 +4,7 @@ import { Picker } from "@react-native-picker/picker";
 import { Text, TextInput, View, TouchableOpacity } from "react-native";
 import { styles } from "../styles";
 import { Hero, Class } from "../types";
+import { clamp, sanitizePercentInputToFraction } from "../utils/format";
 
 interface Props {
   cls: Class;                     // "Infantry" | "Lancer" | "Marksman"
@@ -112,7 +113,7 @@ export const ClassRow: React.FC<Props> = (p) => {
 
   const percentValue = (() => {
     const v = parseFloat(p.ratio || "0");
-    return isNaN(v) ? 0 : Math.round(v * 100);
+    return Number.isNaN(v) ? 0 : Math.round(v * 100);
   })();
 
   const trackColour = p.side === "atk" ? "#93C5FD" : "#FCA5A5";
@@ -184,23 +185,8 @@ export const ClassRow: React.FC<Props> = (p) => {
           style={styles.ratioInput}
           value={String(percentValue)}
           onChangeText={(txt) => {
-            // Created Logic for review: sanitize percentage input to [0,100]
-            const cleaned = txt.replace(/[^0-9.]/g, "");
-            const firstDot = cleaned.indexOf(".");
-            const normalized =
-              firstDot === -1
-                ? cleaned
-                : cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, "");
-            let pct = parseFloat(normalized);
-            if (isNaN(pct)) {
-              p.setRatio("");
-              return;
-            }
-            if (pct < 0) pct = 0;
-            if (pct > 100) pct = 100;
-            const frac = Math.round((pct / 100) * 1000) / 1000;
-            // Let SideSetup clamp totals <= 1. We just pass proposed value.
-            p.setRatio(String(frac));
+            const frac = sanitizePercentInputToFraction(txt);
+            p.setRatio(frac);
           }}
           keyboardType="numeric"
           placeholder="0-100"
@@ -231,7 +217,7 @@ export const ClassRow: React.FC<Props> = (p) => {
           value={percentValue}
           onValueChange={(v: number) => {
             if (p.disabled) return;
-            const pct = Math.max(0, Math.min(100, v));
+            const pct = clamp(v, 0, 100);
             const frac = String(Math.round((pct / 100) * 1000) / 1000);
             p.setRatio(frac);
           }}

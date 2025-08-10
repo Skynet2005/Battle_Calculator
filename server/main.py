@@ -1,6 +1,6 @@
 # server/main.py
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, validator, Field
 from typing import List, Dict, Any, Optional, Tuple
@@ -14,13 +14,52 @@ import threading
 import hashlib
 from pathlib import Path
 import re  # for markdown -> plaintext sanitation
+from sqlalchemy.orm import Session
+
+# local auth/db
+# Support running as a package (server.main) or as a module in the server dir
+try:
+    from .db import (
+        SessionLocal,
+        init_db,
+        get_user_by_username,
+        get_user_by_id,
+        create_user,
+        upsert_user_settings,
+        get_user_settings,
+        create_saved_setting,
+        list_saved_settings,
+        get_saved_setting,
+        delete_saved_setting,
+    )
+    from .auth import hash_password, verify_password, create_access_token, decode_token
+except ImportError:  # fallback when launched as "uvicorn main:app" inside server/
+    from db import (  # type: ignore
+        SessionLocal,
+        init_db,
+        get_user_by_username,
+        get_user_by_id,
+        create_user,
+        upsert_user_settings,
+        get_user_settings,
+        create_saved_setting,
+        list_saved_settings,
+        get_saved_setting,
+        delete_saved_setting,
+    )
+    from auth import hash_password, verify_password, create_access_token, decode_token  # type: ignore
 
 # raw data
 from hero_data.hero_loader import HEROES as RAW_HEROES
 from troop_data.troop_definitions import TROOP_DEFINITIONS
 
 # import your updated expedition simulation
-from expedition_battle_mechanics.simulation import simulate_battle, monte_carlo_battle
+from expedition_battle_mechanics.simulation import (
+    simulate_battle,
+    monte_carlo_battle,
+    simulate_battle_weighted,
+    monte_carlo_battle_weighted,
+)
 
 # expedition engine
 from expedition_battle_mechanics.loader       import hero_from_dict
@@ -31,6 +70,14 @@ from expedition_battle_mechanics.bonus        import BonusSource
 from chief_gear import CHIEF_GEAR_DATA as chief_gear_data
 from chief_charms import CHIEF_CHARMS_DATA as chief_charms_data
 
+# research data
+from research import (
+    get_category_names as research_get_category_names,
+    get_tier_labels as research_get_tier_labels,
+    get_nodes as research_get_nodes,
+    find_stat as research_find_stat,
+    flatten as research_flatten,
+)
 
 
 # -----------------------------
@@ -44,6 +91,66 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# -----------------------------
+# Startup
+# -----------------------------
+@app.on_event("startup")
+def _on_startup():
+    # Created Logic for review: ensure SQLite tables exist on app startup
+    init_db()
+
+
+# -----------------------------
+# DB session dependency
+# -----------------------------
+def get_db_session():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+# -----------------------------
+# Auth helpers + models
+# -----------------------------
+class AuthRequest(BaseModel):
+    username: str
+    password: str
+
+
+class AuthResponse(BaseModel):
+    token: str
+    username: str
+
+
+def _parse_bearer(authorization: Optional[str]) -> Optional[str]:
+    if not authorization:
+        return None
+    parts = authorization.split()
+    if len(parts) == 2 and parts[0].lower() == "bearer":
+        return parts[1]
+    return None
+
+
+def _require_user(authorization: Optional[str], db: Session) -> dict:
+    token = _parse_bearer(authorization)
+    if not token:
+        raise HTTPException(401, "Missing bearer token")
+    payload = decode_token(token)
+    if not payload:
+        raise HTTPException(401, "Invalid or expired token")
+    try:
+        uid = int(str(payload.get("sub")))
+    except Exception:
+        raise HTTPException(401, "Malformed token")
+    user = get_user_by_id(db, uid)
+    if not user:
+        raise HTTPException(401, "User not found")
+    return {"id": user.id, "username": user.username}
+
 
 
 # -----------------------------
@@ -79,6 +186,12 @@ class SimRequest(BaseModel):
     defenderGear:          Optional[Dict[str, float]] = None
     attackerCharms:        Optional[Dict[str, float]] = None  # { lethalityPct?, healthPct? }
     defenderCharms:        Optional[Dict[str, float]] = None
+    # Research buffs (percent values) aggregated per class/stat
+    attackerResearch:      Optional[Dict[str, float]] = None
+    defenderResearch:      Optional[Dict[str, float]] = None
+    # Chief Skin bonuses (percent values, applies to all troop types)
+    attackerChiefSkinBonuses: Optional[Dict[str, float]] = None  # { troops_lethality_pct?, troops_health_pct?, troops_defense_pct?, troops_attack_pct? }
+    defenderChiefSkinBonuses: Optional[Dict[str, float]] = None
 
     @validator("attackerRatios", "defenderRatios")
     def check_ratios_sum(cls, v):
@@ -249,8 +362,199 @@ def compact_result(full: dict, max_chars: int = int(os.getenv("OPENAI_MAX_CHARS"
 
 
 # -----------------------------
+# Shared helpers
+# -----------------------------
+def _mk_city_buffs(
+    gear: Optional[Dict[str, float]] | None,
+    charms: Optional[Dict[str, float]] | None,
+    research: Optional[Dict[str, float]] | None,
+    chief_skin_bonuses: Optional[Dict[str, float]] = None,
+) -> Dict[str, float]:
+    """
+    Created Logic for review: Merge class-specific city buffs from gear, charms, and research.
+    Input values are percent units (e.g., 12.5) and converted to decimals (0.125).
+    """
+    city: Dict[str, float] = {}
+    if gear:
+        # Only use class-specific mapping to avoid double-counting
+        for cls in ("infantry", "lancer", "marksman"):
+            ca = float(gear.get(f"{cls}_attack_pct", 0.0)) / 100.0
+            cd = float(gear.get(f"{cls}_defense_pct", 0.0)) / 100.0
+            if ca:
+                city[f"{cls}_attack"] = city.get(f"{cls}_attack", 0.0) + ca
+            if cd:
+                city[f"{cls}_defense"] = city.get(f"{cls}_defense", 0.0) + cd
+    if charms:
+        # Only use class-specific mapping
+        for cls in ("infantry", "lancer", "marksman"):
+            le = float(charms.get(f"{cls}_lethality_pct", 0.0)) / 100.0
+            hp = float(charms.get(f"{cls}_health_pct", 0.0)) / 100.0
+            if le:
+                city[f"{cls}_lethality"] = city.get(f"{cls}_lethality", 0.0) + le
+            if hp:
+                city[f"{cls}_health"] = city.get(f"{cls}_health", 0.0) + hp
+    if research:
+        # research map contains cumulative percent values; convert to decimals and add
+        # Supports both troop-wide keys and class-specific keys
+        troop_map = {
+            "troop_attack_pct": ("infantry_attack", "lancer_attack", "marksman_attack"),
+            "troops_attack_pct": ("infantry_attack", "lancer_attack", "marksman_attack"),
+            "troop_defense_pct": ("infantry_defense", "lancer_defense", "marksman_defense"),
+            "troops_defense_pct": ("infantry_defense", "lancer_defense", "marksman_defense"),
+            "troop_health_pct": ("infantry_health", "lancer_health", "marksman_health"),
+            "troops_health_pct": ("infantry_health", "lancer_health", "marksman_health"),
+            "troop_lethality_pct": ("infantry_lethality", "lancer_lethality", "marksman_lethality"),
+            "troops_lethality_pct": ("infantry_lethality", "lancer_lethality", "marksman_lethality"),
+        }
+        # troop-wide fields
+        for k, targets in troop_map.items():
+            v = float(research.get(k, 0.0)) / 100.0
+            if not v:
+                continue
+            for t in targets:
+                city[t] = city.get(t, 0.0) + v
+        # class-specific fields
+        for cls in ("infantry", "lancer", "marksman"):
+            for stat in ("attack", "defense", "lethality", "health"):
+                pct = float(research.get(f"{cls}_{stat}_pct", 0.0)) / 100.0
+                if pct:
+                    city[f"{cls}_{stat}"] = city.get(f"{cls}_{stat}", 0.0) + pct
+        
+        # Chief Skin bonuses (apply to all troop types)
+        if chief_skin_bonuses:
+            # Created Logic for review: Chief Skin bonuses apply to all troop types (Infantry, Lancer, Marksman)
+            for cls in ("infantry", "lancer", "marksman"):
+                # Lethality bonus
+                le = float(chief_skin_bonuses.get("troops_lethality_pct", 0.0)) / 100.0
+                if le:
+                    city[f"{cls}_lethality"] = city.get(f"{cls}_lethality", 0.0) + le
+                # Health bonus
+                hp = float(chief_skin_bonuses.get("troops_health_pct", 0.0)) / 100.0
+                if hp:
+                    city[f"{cls}_health"] = city.get(f"{cls}_health", 0.0) + hp
+                # Defense bonus
+                df = float(chief_skin_bonuses.get("troops_defense_pct", 0.0)) / 100.0
+                if df:
+                    city[f"{cls}_defense"] = city.get(f"{cls}_defense", 0.0) + df
+                # Attack bonus
+                atk = float(chief_skin_bonuses.get("troops_attack_pct", 0.0)) / 100.0
+                if atk:
+                    city[f"{cls}_attack"] = city.get(f"{cls}_attack", 0.0) + atk
+    
+    return city
+
+
+# -----------------------------
 # Routes
 # -----------------------------
+@app.post("/api/auth/register", response_model=AuthResponse)
+def register(req: AuthRequest, db: Session = Depends(get_db_session)):
+    if not req.username or not req.password:
+        raise HTTPException(422, "Username and password are required")
+    existing = get_user_by_username(db, req.username)
+    if existing:
+        raise HTTPException(409, "Username already exists")
+    ph = hash_password(req.password)
+    user = create_user(db, req.username, ph)
+    token = create_access_token(user.id, user.username)
+    return AuthResponse(token=token, username=user.username)
+
+
+@app.post("/api/auth/login", response_model=AuthResponse)
+def login(req: AuthRequest, db: Session = Depends(get_db_session)):
+    user = get_user_by_username(db, req.username)
+    if not user or not verify_password(req.password, user.password_hash):
+        raise HTTPException(401, "Invalid credentials")
+    token = create_access_token(user.id, user.username)
+    return AuthResponse(token=token, username=user.username)
+
+
+class SettingsUpsertRequest(BaseModel):
+    data: Dict[str, Any]
+
+
+class SettingsResponse(BaseModel):
+    data: Dict[str, Any]
+
+
+@app.get("/api/settings", response_model=SettingsResponse)
+def get_settings(Authorization: Optional[str] = Header(default=None), db: Session = Depends(get_db_session)):
+    user = _require_user(Authorization, db)
+    raw = get_user_settings(db, user_id=user["id"]) or "{}"
+    try:
+        parsed = json.loads(raw)
+    except Exception:
+        parsed = {}
+    return SettingsResponse(data=parsed)
+
+
+@app.post("/api/settings", response_model=SettingsResponse)
+def save_settings(req: SettingsUpsertRequest, Authorization: Optional[str] = Header(default=None), db: Session = Depends(get_db_session)):
+    user = _require_user(Authorization, db)
+    try:
+        # Validate is JSON-serializable
+        raw = json.dumps(req.data, separators=(",", ":"))
+    except Exception:
+        raise HTTPException(422, "Settings must be JSON-serializable")
+    upsert_user_settings(db, user_id=user["id"], json_text=raw)
+    return SettingsResponse(data=req.data)
+
+
+# --------------- Multiple saved settings (named presets) ---------------
+class SavedSettingsCreateRequest(BaseModel):
+    name: str
+    data: Dict[str, Any]
+
+
+class SavedSettingsItem(BaseModel):
+    id: int
+    name: str
+    updated_at: str
+
+
+class SavedSettingsListResponse(BaseModel):
+    items: List[SavedSettingsItem]
+
+
+@app.get("/api/settings/saved", response_model=SavedSettingsListResponse)
+def list_saved(Authorization: Optional[str] = Header(default=None), db: Session = Depends(get_db_session)):
+    user = _require_user(Authorization, db)
+    rows = list_saved_settings(db, user_id=user["id"])  # type: ignore
+    items = [SavedSettingsItem(id=r.id, name=r.name, updated_at=r.updated_at.isoformat()) for r in rows]
+    return SavedSettingsListResponse(items=items)
+
+
+@app.post("/api/settings/saved", response_model=SavedSettingsItem)
+def create_saved(req: SavedSettingsCreateRequest, Authorization: Optional[str] = Header(default=None), db: Session = Depends(get_db_session)):
+    user = _require_user(Authorization, db)
+    try:
+        raw = json.dumps(req.data, separators=(",", ":"))
+    except Exception:
+        raise HTTPException(422, "Settings must be JSON-serializable")
+    row = create_saved_setting(db, user_id=user["id"], name=req.name.strip()[:200], json_text=raw)  # type: ignore
+    return SavedSettingsItem(id=row.id, name=row.name, updated_at=row.updated_at.isoformat())
+
+
+@app.get("/api/settings/saved/{setting_id}", response_model=SettingsResponse)
+def get_saved(setting_id: int, Authorization: Optional[str] = Header(default=None), db: Session = Depends(get_db_session)):
+    user = _require_user(Authorization, db)
+    row = get_saved_setting(db, user_id=user["id"], setting_id=setting_id)  # type: ignore
+    if not row:
+        raise HTTPException(404, "Not found")
+    try:
+        data = json.loads(row.data)
+    except Exception:
+        data = {}
+    return SettingsResponse(data=data)
+
+
+@app.delete("/api/settings/saved/{setting_id}", response_model=Dict[str, str])
+def remove_saved(setting_id: int, Authorization: Optional[str] = Header(default=None), db: Session = Depends(get_db_session)):
+    user = _require_user(Authorization, db)
+    ok = delete_saved_setting(db, user_id=user["id"], setting_id=setting_id)  # type: ignore
+    if not ok:
+        raise HTTPException(404, "Not found")
+    return {"status": "deleted"}
 @app.get("/api/heroes", response_model=List[Dict[str, Any]])
 def get_heroes():
     out = []
@@ -320,7 +624,12 @@ def run_simulation(req: SimRequest):
     )
 
     # Merge external buffs from Gear/Charms (convert percent → decimal)
-    def _mk_city_buffs(gear: Optional[Dict[str, float]], charms: Optional[Dict[str, float]]) -> Dict[str, float]:
+    def _mk_city_buffs(
+        gear: Optional[Dict[str, float]],
+        charms: Optional[Dict[str, float]],
+        research: Optional[Dict[str, float]],
+        chief_skin_bonuses: Optional[Dict[str, float]] = None,
+    ) -> Dict[str, float]:
         city: Dict[str, float] = {}
         if gear:
             # Only use class-specific mapping to avoid double-counting
@@ -340,10 +649,58 @@ def run_simulation(req: SimRequest):
                     city[f"{cls}_lethality"] = city.get(f"{cls}_lethality", 0.0) + le
                 if hp:
                     city[f"{cls}_health"] = city.get(f"{cls}_health", 0.0) + hp
+        if research:
+            # Created Logic for review: research map contains cumulative percent values; convert to decimals and add
+            # Supports both troop-wide keys and class-specific keys
+            troop_map = {
+                "troop_attack_pct": ("infantry_attack", "lancer_attack", "marksman_attack"),
+                "troops_attack_pct": ("infantry_attack", "lancer_attack", "marksman_attack"),
+                "troop_defense_pct": ("infantry_defense", "lancer_defense", "marksman_defense"),
+                "troops_defense_pct": ("infantry_defense", "lancer_defense", "marksman_defense"),
+                "troop_health_pct": ("infantry_health", "lancer_health", "marksman_health"),
+                "troops_health_pct": ("infantry_health", "lancer_health", "marksman_health"),
+                "troop_lethality_pct": ("infantry_lethality", "lancer_lethality", "marksman_lethality"),
+                "troops_lethality_pct": ("infantry_lethality", "lancer_lethality", "marksman_lethality"),
+            }
+            # troop-wide fields
+            for k, targets in troop_map.items():
+                v = float(research.get(k, 0.0)) / 100.0
+                if not v:
+                    continue
+                for t in targets:
+                    city[t] = city.get(t, 0.0) + v
+            # class-specific fields
+            for cls in ("infantry", "lancer", "marksman"):
+                for stat in ("attack", "defense", "lethality", "health"):
+                    pct = float(research.get(f"{cls}_{stat}_pct", 0.0)) / 100.0
+                    if pct:
+                        city[f"{cls}_{stat}"] = city.get(f"{cls}_{stat}", 0.0) + pct
+        
+        # Chief Skin bonuses (apply to all troop types)
+        if chief_skin_bonuses:
+            # Created Logic for review: Chief Skin bonuses apply to all troop types (Infantry, Lancer, Marksman)
+            for cls in ("infantry", "lancer", "marksman"):
+                # Lethality bonus
+                le = float(chief_skin_bonuses.get("troops_lethality_pct", 0.0)) / 100.0
+                if le:
+                    city[f"{cls}_lethality"] = city.get(f"{cls}_lethality", 0.0) + le
+                # Health bonus
+                hp = float(chief_skin_bonuses.get("troops_health_pct", 0.0)) / 100.0
+                if hp:
+                    city[f"{cls}_health"] = city.get(f"{cls}_health", 0.0) + hp
+                # Defense bonus
+                df = float(chief_skin_bonuses.get("troops_defense_pct", 0.0)) / 100.0
+                if df:
+                    city[f"{cls}_defense"] = city.get(f"{cls}_defense", 0.0) + df
+                # Attack bonus
+                atk = float(chief_skin_bonuses.get("troops_attack_pct", 0.0)) / 100.0
+                if atk:
+                    city[f"{cls}_attack"] = city.get(f"{cls}_attack", 0.0) + atk
+        
         return city
 
-    atk_city_buffs = _mk_city_buffs(req.attackerGear, req.attackerCharms)
-    def_city_buffs = _mk_city_buffs(req.defenderGear, req.defenderCharms)
+    atk_city_buffs = _mk_city_buffs(req.attackerGear, req.attackerCharms, req.attackerResearch, req.attackerChiefSkinBonuses)
+    def_city_buffs = _mk_city_buffs(req.defenderGear, req.defenderCharms, req.defenderResearch, req.defenderChiefSkinBonuses)
 
     # Bonus sources (aggregate from all heroes, including rally joiners)
     atk_bonus = BonusSource(atk_form.all_heroes(), city_buffs=atk_city_buffs)
@@ -353,8 +710,71 @@ def run_simulation(req: SimRequest):
 
     # Run sim
     if req.sims <= 1:
-        return simulate_battle(rpt)
-    return monte_carlo_battle(rpt, n_sims=req.sims)
+        return simulate_battle(rpt, use_power_weighting=False)
+    return monte_carlo_battle(rpt, n_sims=req.sims, use_power_weighting=False)
+
+
+@app.post("/api/simulate/weighted", response_model=Dict[str, Any])
+def run_simulation_weighted(req: SimRequest):
+    # Same payload model; uses power weighting in damage
+    # Resolve heroes
+    try:
+        def _ew_for(idx: int, arr: List[int]) -> int | None:
+            try:
+                lvl = int(arr[idx]) if idx < len(arr) else None
+            except Exception:
+                lvl = None
+            if lvl is None:
+                return None
+            return max(1, min(10, int(lvl)))
+
+        atk_heroes = [hero_from_dict(RAW_HEROES[n], ew_level=_ew_for(i, req.attackerEwLevels)) for i, n in enumerate(req.attackerHeroes)]
+        def_heroes = [hero_from_dict(RAW_HEROES[n], ew_level=_ew_for(i, req.defenderEwLevels)) for i, n in enumerate(req.defenderHeroes)]
+        atk_support = [hero_from_dict(RAW_HEROES[n]) for n in req.attackerSupportHeroes]
+        def_support = [hero_from_dict(RAW_HEROES[n]) for n in req.defenderSupportHeroes]
+    except KeyError as e:
+        raise HTTPException(422, f"Unknown hero: {e.args[0]}")
+
+    # Resolve troop definitions
+    try:
+        atk_defs = {
+            req.attackerTroops[c]: TROOP_DEFINITIONS[req.attackerTroops[c]]
+            for c in ("Infantry","Lancer","Marksman")
+        }
+        def_defs = {
+            req.defenderTroops[c]: TROOP_DEFINITIONS[req.defenderTroops[c]]
+            for c in ("Infantry","Lancer","Marksman")
+        }
+    except KeyError as e:
+        raise HTTPException(422, f"Unknown troop definition: {e.args[0]}")
+
+    # Build formations
+    atk_form = RallyFormation(
+        atk_heroes,
+        req.attackerRatios,
+        req.attackerCapacity,
+        atk_defs,
+        support_heroes=atk_support,
+    )
+    def_form = RallyFormation(
+        def_heroes,
+        req.defenderRatios,
+        req.defenderCapacity,
+        def_defs,
+        support_heroes=def_support,
+    )
+
+    atk_city_buffs = _mk_city_buffs(req.attackerGear, req.attackerCharms, req.attackerResearch, req.attackerChiefSkinBonuses)
+    def_city_buffs = _mk_city_buffs(req.defenderGear, req.defenderCharms, req.defenderResearch, req.defenderChiefSkinBonuses)
+
+    atk_bonus = BonusSource(atk_form.all_heroes(), city_buffs=atk_city_buffs)
+    def_bonus = BonusSource(def_form.all_heroes(), city_buffs=def_city_buffs)
+
+    rpt = BattleReportInput(atk_form, def_form, atk_bonus, def_bonus)
+
+    if req.sims <= 1:
+        return simulate_battle_weighted(rpt)
+    return monte_carlo_battle_weighted(rpt, n_sims=req.sims)
 
 
 # -----------------------------
@@ -632,6 +1052,113 @@ def calc_chief_charms(req: ChiefCharmsRequest):
         marksman_power=int(marksman_power),
     )
 
+
+# -----------------------------
+# Research tree routes
+# -----------------------------
+
+class ResearchNode(BaseModel):
+    category: str
+    tier_label: str
+    level: int
+    power: int
+    stat_name: str
+    value: float
+
+
+class ResearchFindResponse(BaseModel):
+    value: Optional[float]
+
+
+@app.get("/api/research/categories", response_model=List[str])
+def research_categories():
+    return research_get_category_names()
+
+
+@app.get("/api/research/tiers", response_model=List[str])
+def research_tiers(category: str = Query(..., description="Research category name")):
+    try:
+        return research_get_tier_labels(category)
+    except Exception:
+        raise HTTPException(422, f"Unknown category: {category}")
+
+
+@app.get("/api/research/nodes", response_model=List[ResearchNode])
+def research_nodes(
+    category: str = Query(..., description="Research category name"),
+    tier: str = Query(..., description="Tier label, e.g., 'Level 3'"),
+):
+    # Created Logic for review: normalize node dicts into a single {level, power, stat_name, value}
+    try:
+        raw_nodes = research_get_nodes(category, tier)
+    except Exception:
+        raise HTTPException(422, f"Unknown category/tier: {category} / {tier}")
+
+    def stat_keys_for_node(node: dict) -> List[str]:
+        meta = {"level", "power", category}
+        return [k for k in node.keys() if k not in meta]
+
+    out: List[ResearchNode] = []
+    for node in raw_nodes:
+        level = int(node.get("level", 0))
+        power = int(node.get("power", 0))
+        keys = stat_keys_for_node(node)
+        if not keys:
+            continue
+        # most nodes have exactly one stat key; if multiple, return one item per key
+        for k in keys:
+            try:
+                val = float(node.get(k, 0))
+            except Exception:
+                val = 0.0
+            out.append(
+                ResearchNode(
+                    category=category,
+                    tier_label=tier,
+                    level=level,
+                    power=power,
+                    stat_name=k,
+                    value=val,
+                )
+            )
+    return out
+
+
+@app.get("/api/research/find", response_model=ResearchFindResponse)
+def research_find(
+    category: str = Query(...),
+    tier: str = Query(..., alias="tier"),
+    level: int = Query(...),
+    stat: str = Query(..., description="Stat name, e.g., 'Troop Attack'"),
+):
+    try:
+        v = research_find_stat(category, tier, int(level), stat)
+    except Exception:
+        raise HTTPException(422, f"Invalid lookup for {category} / {tier} / {level} / {stat}")
+    return ResearchFindResponse(value=v)
+
+
+@app.get("/api/research/flatten", response_model=List[ResearchNode])
+def research_flatten_all():
+    # Map flattened rows into ResearchNode model
+    rows = research_flatten()
+    out: List[ResearchNode] = []
+    for r in rows:
+        try:
+            out.append(
+                ResearchNode(
+                    category=str(r.get("category")),
+                    tier_label=str(r.get("tier_label")),
+                    level=int(r.get("level", 0)),
+                    power=int(r.get("power", 0)),
+                    stat_name=str(r.get("stat_name")),
+                    value=float(r.get("value", 0)),
+                )
+            )
+        except Exception:
+            # skip malformed rows
+            continue
+    return out
 
 # -----------------------------
 # AI-style analysis (rule-based + LLM with guardrails)

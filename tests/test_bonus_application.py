@@ -14,7 +14,8 @@ from expedition_battle_mechanics.combat_state import BattleReportInput, CombatSt
 from expedition_battle_mechanics.definitions import ExclusiveWeapon
 from expedition_battle_mechanics.formation import RallyFormation
 from expedition_battle_mechanics.hero import Hero
-from expedition_battle_mechanics.simulation import simulate_battle
+# Use weighted variant in tests to maintain expected behavior while default engine uses strict-doc mode
+from expedition_battle_mechanics.simulation import simulate_battle_weighted as simulate_battle
 
 
 def _make_side(

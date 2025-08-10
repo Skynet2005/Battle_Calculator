@@ -15,15 +15,19 @@ import {
   SimResult,
   ChiefGearTotals,
   ChiefCharmsTotals,
+  ChiefSkinBonuses,
 } from "./types";
 
 import { ConfigSection } from "./components/ConfigSection";
 import { ResultsSection } from "./components/ResultsSection";
 import { SideSetup } from "./components/SideSetup";
 import { JoinerRow } from "./components/JoinerRow";
+import { ResearchSection } from "./components/ResearchSection";
+import { ProfileSection } from "./components/ProfileSection";
 
 /* ─────────────── Main Component ─────────────── */
 export default function App() {
+  const [isAuthed, setIsAuthed] = useState<boolean>(false);
   /* data lists */
   const [heroes, setHeroes] = useState<Hero[]>([]);
   const [troops, setTroops] = useState<string[]>([]);
@@ -88,6 +92,28 @@ export default function App() {
   const [defGearTotals, setDefGearTotals] = useState<ChiefGearTotals | null>(null);
   const [atkCharmTotals, setAtkCharmTotals] = useState<ChiefCharmsTotals | null>(null);
   const [defCharmTotals, setDefCharmTotals] = useState<ChiefCharmsTotals | null>(null);
+  const [atkResearch, setAtkResearch] = useState<any | null>(null);
+  const [defResearch, setDefResearch] = useState<any | null>(null);
+  const [atkResearchSel, setAtkResearchSel] = useState<any | null>(null);
+  const [defResearchSel, setDefResearchSel] = useState<any | null>(null);
+  const [atkGearSel, setAtkGearSel] = useState<Record<string, { tier: string; stars: number }> | null>(null);
+  const [defGearSel, setDefGearSel] = useState<Record<string, { tier: string; stars: number }> | null>(null);
+  const [atkCharmLvls, setAtkCharmLvls] = useState<Record<string, [number, number, number]> | null>(null);
+  const [defCharmLvls, setDefCharmLvls] = useState<Record<string, [number, number, number]> | null>(null);
+
+  // Chief Skin bonuses
+  const [atkChiefSkinBonuses, setAtkChiefSkinBonuses] = useState<ChiefSkinBonuses>({
+    troops_lethality_pct: 0,
+    troops_health_pct: 0,
+    troops_defense_pct: 0,
+    troops_attack_pct: 0,
+  });
+  const [defChiefSkinBonuses, setDefChiefSkinBonuses] = useState<ChiefSkinBonuses>({
+    troops_lethality_pct: 0,
+    troops_health_pct: 0,
+    troops_defense_pct: 0,
+    troops_attack_pct: 0,
+  });
 
   useEffect(() => {
     // Created Logic for review: capture totals posted from SideSetup sections
@@ -105,6 +131,7 @@ export default function App() {
     };
     (global as any).addEventListener?.('chief-gear-charms', onMsg);
     (global as any).onChiefGearCharms = onMsg;
+
     return () => {
       (global as any).removeEventListener?.('chief-gear-charms', onMsg);
       delete (global as any).onChiefGearCharms;
@@ -242,6 +269,10 @@ export default function App() {
           marksman_health_pct: defCharmTotals.marksman_health_pct,
         }
       : undefined,
+    attackerResearch: atkResearch || undefined,
+    defenderResearch: defResearch || undefined,
+    attackerChiefSkinBonuses: atkChiefSkinBonuses,
+    defenderChiefSkinBonuses: defChiefSkinBonuses,
     attackerSupportHeroes:
       attackType === "rally" ? atkSupport.filter((h) => h) : [],
     defenderSupportHeroes:
@@ -277,6 +308,22 @@ export default function App() {
     setDefSupport(["", "", "", ""]);
     setResult(null);
     lastPayloadRef.current = null;
+    setAtkGearSel(null);
+    setDefGearSel(null);
+    setAtkCharmLvls(null);
+    setDefCharmLvls(null);
+    setAtkChiefSkinBonuses({
+      troops_lethality_pct: 0,
+      troops_health_pct: 0,
+      troops_defense_pct: 0,
+      troops_attack_pct: 0,
+    });
+    setDefChiefSkinBonuses({
+      troops_lethality_pct: 0,
+      troops_health_pct: 0,
+      troops_defense_pct: 0,
+      troops_attack_pct: 0,
+    });
   };
 
   const swapSides = () => {
@@ -293,6 +340,8 @@ export default function App() {
     setDefSupport(atkSupport);
     setAtkEwLevels(defEwLevels);
     setDefEwLevels(atkEwLevels);
+    setAtkChiefSkinBonuses(defChiefSkinBonuses);
+    setDefChiefSkinBonuses(atkChiefSkinBonuses);
     // keep capacities identical
   };
 
@@ -327,7 +376,81 @@ export default function App() {
       <Text style={styles.header}>Battle Simulator</Text>
 
       <View style={styles.content}>
-      {/* top config: attack type, capacities, sims */}
+      {/* Splash Login/Register gate */}
+      {!isAuthed && (
+        <View style={[styles.panel, { marginBottom: 12 }]}> 
+          <Text style={styles.subHeader}>Welcome</Text>
+          <Text style={styles.helperText}>Please Login or Register to continue.</Text>
+          <ProfileSection
+            minimal
+            collectSettings={() => ({} as any)}
+            applySettings={() => {}}
+            onAuthChange={(a) => setIsAuthed(!!(a && a.token))}
+          />
+        </View>
+      )}
+
+      {isAuthed && (
+      <ProfileSection
+        collectSettings={() => ({
+          attackType,
+          attackerCapacity,
+          defenderCapacity,
+          sims,
+          atkH,
+          defH,
+          atkT,
+          defT,
+          atkSlots,
+          defSlots,
+          atkEwLevels,
+          defEwLevels,
+          atkRatios,
+          defRatios,
+          atkSupport,
+          defSupport,
+          atkResearch,
+          defResearch,
+          atkResearchSelection: atkResearchSel || undefined,
+          defResearchSelection: defResearchSel || undefined,
+          atkGearSelection: atkGearSel || undefined,
+          defGearSelection: defGearSel || undefined,
+          atkCharmLevels: atkCharmLvls || undefined,
+          defCharmLevels: defCharmLvls || undefined,
+          atkChiefSkinBonuses,
+          defChiefSkinBonuses,
+        })}
+        applySettings={(d) => {
+          setAttackType(d.attackType);
+          setAttackerCapacity(d.attackerCapacity);
+          setDefenderCapacity(d.defenderCapacity);
+          setSims(d.sims);
+          setAtkH(d.atkH);
+          setDefH(d.defH);
+          setAtkT(d.atkT);
+          setDefT(d.defT);
+          setAtkSlots(d.atkSlots);
+          setDefSlots(d.defSlots);
+          setAtkEwLevels(d.atkEwLevels);
+          setDefEwLevels(d.defEwLevels);
+          setAtkRatios(d.atkRatios);
+          setDefRatios(d.defRatios);
+          setAtkSupport(d.atkSupport);
+          setDefSupport(d.defSupport);
+          setAtkResearch(d.atkResearch ?? null);
+          setDefResearch(d.defResearch ?? null);
+          if (d.atkResearchSelection) setAtkResearchSel(d.atkResearchSelection);
+          if (d.defResearchSelection) setDefResearchSel(d.defResearchSelection);
+          if (d.atkGearSelection) setAtkGearSel(d.atkGearSelection);
+          if (d.defGearSelection) setDefGearSel(d.defGearSelection);
+          if (d.atkCharmLevels) setAtkCharmLvls(d.atkCharmLevels);
+          if (d.defCharmLevels) setDefCharmLvls(d.defCharmLevels);
+          if (d.atkChiefSkinBonuses) setAtkChiefSkinBonuses(d.atkChiefSkinBonuses);
+          if (d.defChiefSkinBonuses) setDefChiefSkinBonuses(d.defChiefSkinBonuses);
+        }}
+        onAuthChange={(a) => setIsAuthed(!!(a && a.token))}
+      />)}
+      {isAuthed && (
       <View style={[styles.panel, { marginBottom: 12 }]}> 
         <ConfigSection
           attackType={attackType}
@@ -342,7 +465,19 @@ export default function App() {
           isRunning={isRunning}
           hideRunButton
         />
-      </View>
+      </View>)}
+      
+      {isAuthed && (
+      <View style={isSmall ? styles.twoColStack : styles.twoColRow}>
+        <View style={styles.col}>
+          <ResearchSection side="atk" onChange={(b) => setAtkResearch(b)} onSelectionChange={(rows)=> setAtkResearchSel(rows)} value={atkResearchSel} />
+        </View>
+        <View style={styles.col}>
+          <ResearchSection side="def" onChange={(b) => setDefResearch(b)} onSelectionChange={(rows)=> setDefResearchSel(rows)} value={defResearchSel} />
+        </View>
+      </View>)}
+
+      {isAuthed && (
       <View style={isSmall ? styles.twoColStack : styles.twoColRow}>
         {/* Left Column: Attacker */}
         <View style={styles.col}>
@@ -365,6 +500,12 @@ export default function App() {
             disabled={isRunning}
             capacity={attackerCapacity}
             setCapacity={setAttackerCapacity}
+            gearSelection={atkGearSel || undefined}
+            onGearSelectionChange={(m) => setAtkGearSel(m)}
+            charmLevels={atkCharmLvls || undefined}
+            onCharmLevelsChange={(m) => setAtkCharmLvls(m)}
+            chiefSkinBonuses={atkChiefSkinBonuses}
+            onChiefSkinBonusesChange={setAtkChiefSkinBonuses}
           />
 
           {attackType === "rally" && (
@@ -413,6 +554,12 @@ export default function App() {
             disabled={isRunning}
             capacity={defenderCapacity}
             setCapacity={setDefenderCapacity}
+            gearSelection={defGearSel || undefined}
+            onGearSelectionChange={(m) => setDefGearSel(m)}
+            charmLevels={defCharmLvls || undefined}
+            onCharmLevelsChange={(m) => setDefCharmLvls(m)}
+            chiefSkinBonuses={defChiefSkinBonuses}
+            onChiefSkinBonusesChange={setDefChiefSkinBonuses}
           />
 
           {attackType === "rally" && (
@@ -439,9 +586,9 @@ export default function App() {
           )}
           </View>
         </View>
-      </View>
+      </View>)}
 
-      {/* run + actions */}
+      {isAuthed && (
       <View style={[styles.panel, { marginTop: 12 }]}>
         <TouchableOpacity onPress={runSim} disabled={!!isRunning} style={[styles.buttonContainer, isRunning && styles.disabledButton]}>
           <Text style={styles.buttonText}>{isRunning ? "Running…" : "Run Simulation"}</Text>
@@ -457,25 +604,25 @@ export default function App() {
             <Text style={styles.buttonText}>Reset</Text>
           </TouchableOpacity>
         </View>
+        
         </View>
-      </View>
+      </View>)}
 
-      {/* results */}
-      <View onLayout={(e) => setResultsY(e.nativeEvent.layout.y)} />
-      {isRunning && (
+      {isAuthed && (<View onLayout={(e) => setResultsY(e.nativeEvent.layout.y)} />)}
+      {isAuthed && isRunning && (
         <View style={[styles.panel, { alignItems: "center" }]}> 
           <ActivityIndicator size="large" color="#3B82F6" />
           <Text style={{ color: "#E5E7EB", marginTop: 8 }}>Running simulation…</Text>
         </View>
       )}
-      {result && <ResultsSection result={result} onRerun={rerunSim} />}
+      {isAuthed && result && <ResultsSection result={result} onRerun={rerunSim} />}
 
-      {/* quick re-run FAB */}
+      {isAuthed && (
       <View style={styles.fab}>
         <TouchableOpacity onPress={rerunSim} style={styles.fabButton} disabled={isRunning || !lastPayloadRef.current}>
           <Text style={styles.buttonText}>{isRunning ? "Running…" : "Re-Run"}</Text>
         </TouchableOpacity>
-      </View>
+      </View>)}
       </View>
     </ScrollView>
   );

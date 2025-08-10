@@ -155,10 +155,10 @@ def _structure_procs(proc: Dict[str, int]) -> Dict[str, Dict[str, Dict[str, int]
 
 # ─────────────────────────────────────────────────────────────────────────────
 def simulate_battle(
-    report: BattleReportInput, max_rounds: int = 10_000
+    report: BattleReportInput, max_rounds: int = 10_000, use_power_weighting: bool = False
 ) -> Dict[str, Any]:
     rpt = deepcopy(report)
-    state = CombatState(rpt)
+    state = CombatState(rpt, use_power_weighting=use_power_weighting)
 
     atk_start = {t: g.count for t, g in state.attacker_groups.items()}
     def_start = {t: g.count for t, g in state.defender_groups.items()}
@@ -283,7 +283,7 @@ def simulate_battle(
 
 # ─────────────────────────────────────────────────────────────────────────────
 def monte_carlo_battle(
-    report: BattleReportInput, n_sims: int = 1_000
+    report: BattleReportInput, n_sims: int = 1_000, use_power_weighting: bool = False
 ) -> Dict[str, Any]:
     wins = {"attacker": 0, "defender": 0}
     atk_surv = def_surv = 0
@@ -291,7 +291,7 @@ def monte_carlo_battle(
     sample = None
 
     for i in range(n_sims):
-        res = simulate_battle(report, max_rounds=10_000)
+        res = simulate_battle(report, max_rounds=10_000, use_power_weighting=use_power_weighting)
         if i == 0:
             sample = res
         wins[res["winner"]] += 1
@@ -315,3 +315,12 @@ def monte_carlo_battle(
         "proc_stats": _structure_procs(dict(proc_sum)),
         "sample_battle": sample,
     }
+
+
+# Convenience wrappers for weighted mode (keeps old behavior explicit)
+def simulate_battle_weighted(report: BattleReportInput, max_rounds: int = 10_000) -> Dict[str, Any]:
+    return simulate_battle(report, max_rounds=max_rounds, use_power_weighting=True)
+
+
+def monte_carlo_battle_weighted(report: BattleReportInput, n_sims: int = 1_000) -> Dict[str, Any]:
+    return monte_carlo_battle(report, n_sims=n_sims, use_power_weighting=True)

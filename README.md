@@ -1,212 +1,280 @@
-# Rally Calc Laptop
+# Whiteout Survival Battle Calculator
 
-This project is a toolkit for simulating and analyzing battle and rally mechanics, hero data, and troop data for a strategy game. The codebase is organized into modules for battle mechanics, hero and troop data, and supporting documentation.
+A comprehensive battle simulation and analysis toolkit for the strategy game **Whiteout Survival**. This project provides detailed battle mechanics simulation, hero data management, troop calculations, and strategic planning tools through a modern web/mobile interface.
 
-Setup:
+## 🎯 Project Overview
+
+This battle calculator simulates and analyzes **Expedition Battles** and **Rally Formations** in Whiteout Survival, including:
+
+- **Turn-based battle simulation** with realistic troop mechanics
+- **Hero skill calculations** including Expedition Skills, Exclusive Weapons, and Widgets
+- **Troop composition optimization** for Infantry, Lancers, and Marksmen
+- **Rally formation analysis** with support hero integration
+- **Chief Gear and Charm calculations** with set bonuses
+- **Research tree integration** for battle technology bonuses
+- **Monte Carlo simulations** for battle outcome probability analysis
+
+## 🏗️ Architecture
+
+### Backend (Python/FastAPI)
+- **Battle Engine**: Sophisticated turn-based combat simulation
+- **Hero Data System**: Comprehensive database of all hero generations and skills
+- **Troop Mechanics**: Detailed troop type definitions and combat rules
+- **Bonus Calculations**: Complex stacking and interaction rules for all buffs
+- **Database**: SQLite with Prisma schema ready for PostgreSQL migration
+
+### Frontend (React Native/Expo)
+- **Cross-platform**: Web, iOS, and Android support
+- **Real-time Simulation**: Live battle calculations and results
+- **Configuration Management**: Save/load battle setups and preferences
+- **Responsive UI**: Modern interface for complex battle planning
+
+## 🚀 Quick Start
+
+### One-Command Setup (Recommended)
+
+From the root directory, you can start all services with a single command:
 
 ```bash
-python3 -m venv env
-source env/bin/activate        # macOS/Linux
-# .\env\Scripts\Activate.ps1   # Windows PowerShell
-pip install fastapi uvicorn
+# Install all dependencies first time
+npm run setup
+
+# Start all services (backend, frontend, and Prisma)
+npm run dev
 ```
 
-Run the server:
+This will start:
+- **Backend Server**: FastAPI on http://localhost:8000
+- **Frontend**: React Native/Expo development server
+- **Prisma Studio**: Database management on http://localhost:5555
+
+### Alternative: Platform-Specific Scripts
+
+#### Windows
+```cmd
+start-dev.bat
+```
+
+#### macOS/Linux
+```bash
+./start-dev.sh
+```
+
+### Manual Setup (if needed)
+
+#### Backend Setup
 
 ```bash
+# Create virtual environment
+python3 -m venv env
+source env/bin/activate        # macOS/Linux
+.\env\Scripts\Activate.ps1   # Windows PowerShell
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start the server
 cd server
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Simulation API
-
-The backend exposes a `/api/simulate` endpoint that mirrors in‑game expedition
-and rally battles. Besides the three primary commanders, you can now specify
-support heroes that join a rally and contribute their passive expedition skills
-and exclusive‑weapon bonuses:
-
-```json
-{
-  "attackerHeroes": ["Sergey", "Patrick", "Gina"],
-  "attackerSupportHeroes": ["Hendrik"],
-  "defenderHeroes": ["Sergey", "Patrick", "Gina"],
-  "defenderSupportHeroes": [],
-  "attackerRatios": {"Infantry": 1.0, "Lancer": 0.0, "Marksman": 0.0},
-  "defenderRatios": {"Infantry": 1.0, "Lancer": 0.0, "Marksman": 0.0},
-  ...
-}
-```
-
-Support heroes do not command troops but their permanent buffs are aggregated
-into the battle calculation, ensuring more accurate rally simulations.
-
-Creating the front-end:
+#### Frontend Setup
 
 ```bash
+# Install Expo CLI globally
 npm install -g expo-cli
-expo init BattleSimApp   # choose "blank (TypeScript)"
+
+# Navigate to frontend
 cd BattleSimApp
-npm install axios @react-native-picker/picker
-```
 
-Run the App:
+# Install dependencies
+npm install
 
-```bash
+# Start the development server
 npx expo start
 ```
 
-now press w for web.. if react 19.1 is not installed, open a new terminal and install it, then reattempt pressing w in the node terminal.
+Press `w` for web version, or use Expo Go app on mobile devices.
+
+## 🎮 Core Features
+
+### Battle Simulation
+- **Solo vs Rally**: Choose between individual marches or alliance rallies
+- **Hero Selection**: Configure up to 3 main heroes per side with class-specific positioning
+- **Support Heroes**: Add up to 4 support heroes for additional passive skills
+- **Troop Ratios**: Fine-tune Infantry/Lancer/Marksman compositions
+- **Capacity Management**: Set march sizes for both attacker and defender
+
+### Advanced Calculations
+- **Exclusive Weapons**: Level 1-10 weapon bonuses per troop class
+- **Chief Gear**: Mythic/Legendary gear with set bonuses and star upgrades
+- **Charms System**: Lethality and Health bonuses with level-based scaling
+- **Research Integration**: Battle technology tree bonuses by category and tier
+- **Skill Stacking**: Complex interaction rules for hero abilities and buffs
+
+### Analysis Tools
+- **Battle Reports**: Detailed turn-by-turn combat logs
+- **Statistics**: Win rates, casualties, damage dealt/received
+- **Monte Carlo**: Multiple simulation runs for probability analysis
+- **Performance Metrics**: Power efficiency and troop utilization analysis
+
+## 🧙‍♂️ Hero System
+
+The calculator includes comprehensive data for all hero generations:
+
+- **Epic Heroes**: Bahiti, Gina, Jassar, Jessie, Patrick, Seo Yoon, Sergey, Walis Bokan
+- **Rare Heroes**: Charlie, Cloris, Eugene, Smith
+- **SSR Generations**: Gen 1-8 heroes with unique skill sets
+- **Expedition Skills**: Right-side hero abilities that enhance troops
+- **Exclusive Weapons**: Hero-specific gear with class bonuses
+
+## ⚔️ Troop Mechanics
+
+### Three Troop Classes
+- **Infantry**: Frontline tanks with high Defense/Health, +10% Attack vs Lancers
+- **Lancers**: Balanced support with 20% chance to bypass Infantry and target Marksmen
+- **Marksmen**: Backline damage dealers with +10% Attack vs Infantry, 10% double-strike chance
+
+### Combat System
+- **Turn-based**: Sequential damage calculation with targeting priorities
+- **Positioning**: Front-to-back damage flow with bypass mechanics
+- **Stat Interactions**: Attack vs Defense, Lethality bypass, Health management
+- **Class Bonuses**: Rock-paper-scissors style advantages between troop types
+
+## 🔧 API Endpoints
+
+### Core Simulation
+- `POST /api/simulate` - Run battle simulation
+- `POST /api/simulate/weighted` - Power-weighted simulation
+- `GET /api/heroes` - Available hero data
+- `GET /api/troops` - Troop type definitions
+
+### Equipment & Research
+- `POST /api/gear/chief/calc` - Chief gear calculations
+- `POST /api/gear/chief/charms/calc` - Charm system calculations
+- `GET /api/research/categories` - Research tree categories
+- `GET /api/research/find` - Specific research node values
+
+### User Management
+- `POST /api/auth/register` - User registration
+- `POST /api/auth/login` - User authentication
+- `POST /api/settings` - Save user preferences
+- `GET /api/settings/saved` - List saved configurations
+
+## 📊 Database Schema
+
+### Prisma Integration
+The project includes a Prisma schema ready for PostgreSQL deployment:
 
 ```bash
-npx expo install react@19.1.0
+# Generate Prisma client
+npm run prisma:generate
 
-npx expo install react-native-web @expo/metro-runtime
+# Run migrations
+npm run prisma:migrate
+
+# Open Prisma Studio
+npm run prisma:studio
 ```
 
-To Restart the FastAPI:
+### Current SQLite Setup
+The Python backend uses SQLite by default with SQLAlchemy ORM, easily migratable to PostgreSQL.
+
+## 🧪 Testing
+
+Comprehensive test suite covering:
+- Battle mechanics and calculations
+- Hero skill interactions
+- Troop targeting and damage
+- Bonus stacking rules
+- Support hero integration
 
 ```bash
-uvicorn main:app --reload
+# Run tests
+cd tests
+python -m pytest
 ```
 
-To restart the Expo app:
+## 📁 Project Structure
 
-```bash
-npx expo start
+```
+battle_calculator/
+├── BattleSimApp/           # React Native/Expo frontend
+│   ├── components/         # UI components
+│   ├── types.ts           # TypeScript definitions
+│   └── App.tsx            # Main application
+├── server/                 # Python FastAPI backend
+│   ├── expedition_battle_mechanics/  # Core battle engine
+│   ├── hero_data/         # Hero definitions and skills
+│   ├── troop_data/        # Troop type definitions
+│   ├── chief_gear/        # Equipment calculations
+│   ├── research/          # Technology tree integration
+│   └── main.py            # API server
+├── docs/                  # Game mechanics documentation
+├── tests/                 # Test suite
+├── prisma/                # Database schema and migrations
+├── start-dev.bat          # Windows development startup script
+├── start-dev.sh           # macOS/Linux development startup script
+└── package.json           # Root package with development scripts
 ```
 
-TO UPDATE GITHUB:
+## 🛠️ Development Scripts
 
-```bash
-git add .
-git commit -m "Your commit message"
-git push origin main
-```
+### Root Package Scripts
+- `npm run dev` - Start all services concurrently
+- `npm run dev:backend` - Start only the FastAPI backend
+- `npm run dev:frontend` - Start only the React Native frontend
+- `npm run dev:prisma` - Start only Prisma Studio
+- `npm run setup` - Install all dependencies and setup Prisma
+- `npm run install:all` - Install dependencies for all services
 
-## File Organization
+## 🎯 Use Cases
 
-Below is a Mermaid diagram visualizing the file and folder structure of the project in a left-to-right outline format (excluding the Archive and Docs folders):
+### For Players
+- **Battle Planning**: Test different hero combinations before committing resources
+- **Rally Optimization**: Maximize alliance rally effectiveness
+- **Gear Planning**: Calculate optimal Chief Gear and Charm investments
+- **Research Prioritization**: Focus on most impactful battle technologies
 
-```mermaid
-flowchart LR
-  A["rally_calc_laptop/"]
-  A1["BattleSimApp/"]
-  A2["server/"]
-  A3["test.py"]
-  A4["requirements.txt"]
-  A5["README.md"]
+### For Alliance Leaders
+- **Rally Coordination**: Plan optimal participant compositions
+- **Resource Allocation**: Guide members on gear and research priorities
+- **Strategy Development**: Test different formation approaches
 
-  A --> A1
-  A --> A2
-  A --> A3
-  A --> A4
-  A --> A5
+### For Content Creators
+- **Theory Crafting**: Analyze game mechanics and meta strategies
+- **Guide Creation**: Provide data-driven recommendations
+- **Community Tools**: Share battle setups and results
 
-  %% BattleSimApp contents
-  A1 --> A1a["app.json"]
-  A1 --> A1b["App.tsx"]
-  A1 --> A1c["assets/"]
-  A1 --> A1d["index.ts"]
-  A1 --> A1e["package-lock.json"]
-  A1 --> A1f["package.json"]
-  A1 --> A1g["tsconfig.json"]
+## 🔮 Future Enhancements
 
-  A1c --> A1c1["adaptive-icon.png"]
-  A1c --> A1c2["favicon.png"]
-  A1c --> A1c3["icon.png"]
-  A1c --> A1c4["splash-icon.png"]
+- **Real-time Battle Streaming**: Live simulation updates
+- **Alliance Integration**: Multi-user battle planning
+- **Historical Analysis**: Battle result tracking and trends
+- **Mobile App**: Native iOS/Android applications
+- **API Documentation**: Interactive API explorer
+- **Performance Optimization**: Caching and simulation improvements
 
-  %% Server contents
-  A2 --> A2a["battle_mechanics.py"]
-  A2 --> A2b["main.py"]
-  A2 --> A2c["hero_data/"]
-  A2 --> A2d["troop_data/"]
+## 🤝 Contributing
 
-  %% hero_data subfolders
-  A2c --> A2c1["__init__.py"]
-  A2c --> A2c2["epic_heroes/"]
-  A2c --> A2c3["hero_loader.py"]
-  A2c --> A2c4["rare_heroes/"]
-  A2c --> A2c5["ssr_gen_eight_heroes/"]
-  A2c --> A2c6["ssr_gen_five_heroes/"]
-  A2c --> A2c7["ssr_gen_four_heroes/"]
-  A2c --> A2c8["ssr_gen_one_heroes/"]
-  A2c --> A2c9["ssr_gen_seven_heroes/"]
-  A2c --> A2c10["ssr_gen_six_heroes/"]
-  A2c --> A2c11["ssr_gen_three_heroes/"]
-  A2c --> A2c12["ssr_gen_two_heroes/"]
+This project welcomes contributions! Areas of interest:
+- Additional hero data and skills
+- Battle mechanic improvements
+- UI/UX enhancements
+- Performance optimizations
+- Documentation improvements
 
-  %% epic_heroes
-  A2c2 --> A2c2a["__init__.py"]
-  A2c2 --> A2c2b["bahiti.py"]
-  A2c2 --> A2c2c["gina.py"]
-  A2c2 --> A2c2d["jassar.py"]
-  A2c2 --> A2c2e["jessie.py"]
-  A2c2 --> A2c2f["patrick.py"]
-  A2c2 --> A2c2g["seo_yoon.py"]
-  A2c2 --> A2c2h["sergey.py"]
-  A2c2 --> A2c2i["walis_bokan.py"]
+## 📄 License
 
-  %% rare_heroes
-  A2c4 --> A2c4a["__init__.py"]
-  A2c4 --> A2c4b["charlie.py"]
-  A2c4 --> A2c4c["cloris.py"]
-  A2c4 --> A2c4d["eugene.py"]
-  A2c4 --> A2c4e["smith.py"]
+This project is developed for educational and community use. Please respect the original game's intellectual property.
 
-  %% ssr_gen_eight_heroes
-  A2c5 --> A2c5a["__init__.py"]
-  A2c5 --> A2c5b["gatot.py"]
-  A2c5 --> A2c5c["hendrik.py"]
-  A2c5 --> A2c5d["sonya.py"]
+## 🆘 Support
 
-  %% ssr_gen_five_heroes
-  A2c6 --> A2c6a["__init__.py"]
-  A2c6 --> A2c6b["gwen.py"]
-  A2c6 --> A2c6c["hector.py"]
-  A2c6 --> A2c6d["norah.py"]
-
-  %% ssr_gen_four_heroes
-  A2c7 --> A2c7a["__init__.py"]
-  A2c7 --> A2c7b["ahmose.py"]
-  A2c7 --> A2c7c["lynn.py"]
-  A2c7 --> A2c7d["reina.py"]
-
-  %% ssr_gen_one_heroes
-  A2c8 --> A2c8a["__init__.py"]
-  A2c8 --> A2c8b["jeronimo.py"]
-  A2c8 --> A2c8c["molly.py"]
-  A2c8 --> A2c8d["natalia.py"]
-  A2c8 --> A2c8e["zinman.py"]
-
-  %% ssr_gen_seven_heroes
-  A2c9 --> A2c9a["__init__.py"]
-  A2c9 --> A2c9b["bradley.py"]
-  A2c9 --> A2c9c["edith.py"]
-  A2c9 --> A2c9d["gordon.py"]
-
-  %% ssr_gen_six_heroes
-  A2c10 --> A2c10a["__init__.py"]
-  A2c10 --> A2c10b["renee.py"]
-  A2c10 --> A2c10c["wayne.py"]
-  A2c10 --> A2c10d["wu_ming.py"]
-
-  %% ssr_gen_three_heroes
-  A2c11 --> A2c11a["__init__.py"]
-  A2c11 --> A2c11b["greg.py"]
-  A2c11 --> A2c11c["logan.py"]
-  A2c11 --> A2c11d["mia.py"]
-
-  %% ssr_gen_two_heroes
-  A2c12 --> A2c12a["alonso.py"]
-  A2c12 --> A2c12b["flint.py"]
-  A2c12 --> A2c12c["philly.py"]
-
-  %% troop_data
-  A2d --> A2d1["__init__.py"]
-  A2d --> A2d2["troop_definitions.py"]
-```
+For questions, bug reports, or feature requests:
+- Check the documentation in the `docs/` folder
+- Review existing issues and discussions
+- Create detailed bug reports with reproduction steps
 
 ---
 
-This diagram provides a high-level overview of the folder and file organization for easy navigation and understanding of the codebase.
+**Note**: This calculator is based on community research and analysis of Whiteout Survival's battle mechanics. Results are approximations and may not perfectly match in-game outcomes due to undisclosed game formulas and potential updates.

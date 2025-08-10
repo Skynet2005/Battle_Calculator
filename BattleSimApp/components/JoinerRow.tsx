@@ -3,6 +3,7 @@ import { Picker } from "@react-native-picker/picker";
 import { Text, View } from "react-native";
 import { Hero } from "../types";
 import { styles } from "../styles";
+import { SimplePicker } from "../utils/pickers";
 
 interface Props {
   side: "atk" | "def";
@@ -48,22 +49,37 @@ export const JoinerRow: React.FC<Props> = ({ side, idx, heroes, selected, onChan
   const col = side === "atk" ? styles.attackerLabel : styles.defenderLabel;
   const pickStyle = side === "atk" ? styles.attackerPicker : styles.defenderPicker;
 
+  const pickerItems = React.useMemo(() => {
+    const items: { label: string; value: string; color?: string; enabled?: boolean }[] = [
+      { label: "None", value: "", color: "#FFFFFF" },
+    ];
+    let lastGen: number | null = null;
+    const list = [...heroes].sort((a, b) =>
+      a.generation === b.generation ? a.name.localeCompare(b.name) : a.generation - b.generation
+    );
+    list.forEach((h) => {
+      if (h.generation !== lastGen) {
+        items.push({ label: `-- Gen ${h.generation} --`, value: `__gen-${h.generation}`, color: "#FFFFFF", enabled: false });
+        lastGen = h.generation;
+      }
+      items.push({ label: h.name, value: h.name, color: "#FFFFFF" });
+    });
+    return items;
+  }, [heroes]);
+
   return (
     <View style={styles.row}>
       <Text style={[styles.label, col]}>
         Joiner {idx + 1} Hero {side === "atk" ? "(Attacker)" : "(Defender)"}
       </Text>
-      <Picker
+      <SimplePicker
+        items={pickerItems}
         selectedValue={selected}
-        onValueChange={onChange}
+        onChange={(v) => onChange(v)}
         style={[styles.picker, pickStyle]}
         dropdownIconColor="#FFFFFF"
-        itemStyle={{ color: "#FFFFFF" }}
         enabled={!disabled}
-      >
-        <Picker.Item label="None" value="" color="#FFFFFF" />
-        {heroItems}
-      </Picker>
+      />
     </View>
   );
 };

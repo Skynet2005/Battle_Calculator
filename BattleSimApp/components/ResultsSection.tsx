@@ -18,12 +18,21 @@ import { SideDetails, SimResult } from "../types";
 /* ────────────────────────────────────────────────────────────── */
 
 const troopSkillSet = new Set([
+  // Infantry skills
+  "Master Brawler",
+  "Bands of Steel",
   "Crystal Shield",
   "Body of Light",
+  // Lancer skills
+  "Charge",
+  "Ambusher",
   "Crystal Lance",
   "Incandescent Field",
+  // Marksman skills
+  "Ranged Strike",
   "Volley",
   "Crystal Gunpowder",
+  "Flame Charge",
 ]);
 
 type Props = {
@@ -43,10 +52,9 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
   const passiveAtk = flattenPassives(detail.passive_effects?.attacker);
   const passiveDef = flattenPassives(detail.passive_effects?.defender);
 
-  const flattenBonus = (b: any) => {
+  const flattenBonus = React.useCallback((b: any) => {
     const out: Record<string, number> = {};
     if (!b) return out;
-    // Ignore the All bucket in display. Backend now propagates All => each class.
     Object.entries(b).forEach(([grp, stats]) => {
       if (grp === "All") return;
       Object.entries(stats as Record<string, number>).forEach(([stat, val]) => {
@@ -54,7 +62,7 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
       });
     });
     return out;
-  };
+  }, []);
   const bonusAtk = flattenBonus(detail.bonuses?.attacker);
   const bonusDef = flattenBonus(detail.bonuses?.defender);
 
@@ -87,8 +95,16 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
 
   Object.entries(procStats.attacker || {}).forEach(([skill, clsMap]) => {
     Object.entries(clsMap as Record<string, number>).forEach(([cls, count]) => {
-      if (cls !== "All" && troopSkillSet.has(skill)) {
-        (troopProcsAtk as any)[cls.toLowerCase()].push([skill, count]);
+      if (troopSkillSet.has(skill)) {
+        if (cls === "All") {
+          // If it's a troop skill under "All", distribute it to all classes
+          (troopProcsAtk as any).infantry.push([skill, count]);
+          (troopProcsAtk as any).lancer.push([skill, count]);
+          (troopProcsAtk as any).marksman.push([skill, count]);
+        } else if (cls !== "All") {
+          // If it's a troop skill under a specific class
+          (troopProcsAtk as any)[cls.toLowerCase()].push([skill, count]);
+        }
       } else {
         heroProcsAtk.push([skill, count]);
       }
@@ -96,8 +112,16 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
   });
   Object.entries(procStats.defender || {}).forEach(([skill, clsMap]) => {
     Object.entries(clsMap as Record<string, number>).forEach(([cls, count]) => {
-      if (cls !== "All" && troopSkillSet.has(skill)) {
-        (troopProcsDef as any)[cls.toLowerCase()].push([skill, count]);
+      if (troopSkillSet.has(skill)) {
+        if (cls === "All") {
+          // If it's a troop skill under "All", distribute it to all classes
+          (troopProcsDef as any).infantry.push([skill, count]);
+          (troopProcsDef as any).lancer.push([skill, count]);
+          (troopProcsDef as any).marksman.push([skill, count]);
+        } else if (cls !== "All") {
+          // If it's a troop skill under a specific class
+          (troopProcsDef as any)[cls.toLowerCase()].push([skill, count]);
+        }
       } else {
         heroProcsDef.push([skill, count]);
       }
@@ -119,10 +143,21 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
       }),
     );
 
-  /* copy helper */
+  /* copy helpers */
   const copyAll = () => {
     Clipboard.setStringAsync(JSON.stringify(detail, null, 2));
     Alert.alert("Copied", "All results copied to clipboard.");
+  };
+  
+  const copyJson = () => {
+    Clipboard.setStringAsync(JSON.stringify(detail, null, 2));
+    Alert.alert("Copied", "JSON results copied to clipboard.");
+  };
+  
+  const copyFormatted = () => {
+    const formatted = formatBattleResults(detail);
+    Clipboard.setStringAsync(formatted);
+    Alert.alert("Copied", "Formatted results copied to clipboard.");
   };
   const [aiText, setAiText] = React.useState<string | null>(null);
   const [aiBusy, setAiBusy] = React.useState(false);
@@ -148,6 +183,307 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
   const [viewMode, setViewMode] = React.useState<'compact' | 'detailed'>('detailed');
   const sortAndLimit = (arr: [string, number][], topN = 10) => arr.slice().sort((a, b) => b[1] - a[1]).slice(0, topN);
 
+  // Format battle results in a readable way
+  const formatBattleResults = (result: SimResult) => {
+    const lines: string[] = [];
+    
+    lines.push("BATTLE SIMULATION RESULTS");
+    lines.push("=".repeat(50));
+    lines.push("");
+    
+    // Battle outcome
+    if (result.attacker_win_rate !== undefined) {
+      lines.push("BATTLE OUTCOME:");
+      lines.push(`  Attacker Win Rate: ${((result.attacker_win_rate * 100).toFixed(1))}%`);
+      lines.push(`  Defender Win Rate: ${((result.defender_win_rate || 0) * 100).toFixed(1)}%`);
+      lines.push(`  Average Attacker Survivors: ${Math.round(result.avg_attacker_survivors || 0)}`);
+      lines.push(`  Average Defender Survivors: ${Math.round(result.avg_defender_survivors || 0)}`);
+      lines.push("");
+    }
+    
+    // Check if this is a sample battle or has sample battle data
+    let battleData = result;
+    if (result.sample_battle) {
+      battleData = result.sample_battle;
+      lines.push("SAMPLE BATTLE DETAILS:");
+      lines.push(`  Winner: ${battleData.winner.toUpperCase()}`);
+      lines.push(`  Rounds: ${battleData.rounds}`);
+      lines.push("");
+    }
+    
+    // Power summary
+    if (battleData.power) {
+      lines.push("POWER SUMMARY:");
+      lines.push(`  Attacker: ${battleData.power.attacker.start.toLocaleString()} → ${battleData.power.attacker.end.toLocaleString()}`);
+      lines.push(`  Defender: ${battleData.power.defender.start.toLocaleString()} → ${battleData.power.defender.end.toLocaleString()}`);
+      lines.push("");
+    }
+    
+    // Troop casualties
+    if (battleData.attacker && battleData.defender) {
+      const attacker = battleData.attacker;
+      const defender = battleData.defender;
+      
+      lines.push("TROOP CASUALTIES:");
+      lines.push("  Attacker:");
+      ["Infantry", "Lancer", "Marksman"].forEach(cls => {
+        const kills = defender.kills?.[cls as keyof typeof defender.kills] || 0;
+        const survivors = attacker.survivors?.[cls as keyof typeof attacker.survivors] || 0;
+        const start = attacker.heroes?.[cls as keyof typeof attacker.heroes]?.count_start || 0;
+        const losses = start - survivors;
+        const lossPct = start > 0 ? (losses / start * 100).toFixed(1) : "0.0";
+        lines.push(`    ${cls}: ${start} → ${survivors} (${losses} lost, ${lossPct}%)`);
+      });
+      lines.push("");
+      lines.push("  Defender:");
+      ["Infantry", "Lancer", "Marksman"].forEach(cls => {
+        const kills = attacker.kills?.[cls as keyof typeof attacker.kills] || 0;
+        const survivors = defender.survivors?.[cls as keyof typeof defender.survivors] || 0;
+        const start = defender.heroes?.[cls as keyof typeof defender.heroes]?.count_start || 0;
+        const losses = start - survivors;
+        const lossPct = start > 0 ? (losses / start * 100).toFixed(1) : "0.0";
+        lines.push(`    ${cls}: ${start} → ${survivors} (${losses} lost, ${lossPct}%)`);
+      });
+      lines.push("");
+    }
+    
+    // Key skill activations
+    if (battleData.proc_stats) {
+      const procStats = battleData.proc_stats;
+      lines.push("KEY SKILL ACTIVATIONS:");
+      const allSkills = new Set<string>();
+      Object.values(procStats.attacker || {}).forEach(clsMap => {
+        Object.keys(clsMap).forEach(skill => allSkills.add(skill));
+      });
+      Object.values(procStats.defender || {}).forEach(clsMap => {
+        Object.keys(clsMap).forEach(skill => allSkills.add(skill));
+      });
+      
+      Array.from(allSkills).sort().forEach(skill => {
+        const atkCount = Object.values(procStats.attacker || {}).reduce((sum, clsMap) => 
+          sum + (clsMap[skill] || 0), 0);
+        const defCount = Object.values(procStats.defender || {}).reduce((sum, clsMap) => 
+          sum + (clsMap[skill] || 0), 0);
+        if (atkCount > 0 || defCount > 0) {
+          lines.push(`  ${skill}: Attacker ${atkCount}×, Defender ${defCount}×`);
+        }
+      });
+      lines.push("");
+    }
+    
+    // Add detailed sections for both sides
+    if (battleData.attacker && battleData.defender) {
+      const attacker = battleData.attacker;
+      const defender = battleData.defender;
+      
+      // Attacker section
+      lines.push("ATTACKER");
+      lines.push("=".repeat(20));
+      
+      // Attacker Overview
+      lines.push("Attacker Overview");
+      lines.push(`  Winner: ${battleData.winner.toUpperCase()}`);
+      lines.push(`  Rounds: ${battleData.rounds}`);
+      lines.push(`  Totals: Start ${attacker.summary.start}, End ${attacker.summary.end}, Losses ${attacker.summary.losses}, Loss % ${(attacker.summary.loss_pct * 100).toFixed(1)}%, Kills ${attacker.summary.kills}, Kill % ${(attacker.summary.kill_pct * 100).toFixed(1)}%`);
+      lines.push("");
+      
+      // Attacker Expedition-Skill Impacts
+      if (battleData.passive_effects?.attacker) {
+        lines.push("Expedition-Skill Impacts");
+        const passives = flattenPassives(battleData.passive_effects.attacker);
+        passives.forEach(passive => {
+          lines.push(`  ${passive}`);
+        });
+        lines.push("");
+      }
+      
+      // Attacker Troop Skills
+      ["Infantry", "Lancer", "Marksman"].forEach(cls => {
+        const troopSkillSet = new Set([
+          "Master Brawler", "Bands of Steel", "Crystal Shield", "Body of Light",
+          "Charge", "Ambusher", "Crystal Lance", "Incandescent Field",
+          "Ranged Strike", "Volley", "Crystal Gunpowder", "Flame Charge"
+        ]);
+        
+        // Process proc_stats the same way as the UI logic
+        const combinedSkills: Record<string, number> = {};
+        
+        // Iterate over all skills in proc_stats.attacker
+        Object.entries(battleData.proc_stats?.attacker || {}).forEach(([skill, clsMap]) => {
+          if (troopSkillSet.has(skill)) {
+            const clsMapTyped = clsMap as Record<string, number>;
+            
+            // Check if this skill applies to this class
+            if (clsMapTyped[cls] || clsMapTyped["All"]) {
+              const count = (clsMapTyped[cls] || 0) + (clsMapTyped["All"] || 0);
+              if (count > 0) {
+                combinedSkills[skill] = count;
+              }
+            }
+          }
+        });
+        
+        const skillEntries = Object.entries(combinedSkills).filter(([_, count]) => count > 0);
+        if (skillEntries.length > 0) {
+          lines.push(`${cls} Troop Skills`);
+          skillEntries.forEach(([skill, count], index) => {
+            lines.push(`  ${index + 1}. ${skill}: ${count}`);
+          });
+        } else {
+          lines.push(`${cls} Troop Skills`);
+          lines.push("  — none —");
+        }
+        lines.push("");
+      });
+      
+      // Attacker Kills & Survivors
+      lines.push("Kills & Survivors");
+      ["Infantry", "Lancer", "Marksman"].forEach(cls => {
+        const kills = defender.kills?.[cls as keyof typeof defender.kills] || 0;
+        const survivors = attacker.survivors?.[cls as keyof typeof attacker.survivors] || 0;
+        lines.push(`  ${cls}: Kills ${kills}, Survivors ${survivors}`);
+      });
+      lines.push("");
+      
+      // Attacker Details
+      if (attacker.heroes) {
+        lines.push("Attacker Details");
+        Object.entries(attacker.heroes).forEach(([cls, hero]: [string, any]) => {
+          lines.push(`  ${hero.name}: Gen ${hero.generation}, Class ${cls}, EW Lv ${hero.exclusive_weapon?.level ?? "-"}, Start ${hero.count_start}, End ${hero.count_end}`);
+        });
+        lines.push("");
+      }
+      
+      // Attacker Hero Performance
+      if (attacker.heroes) {
+        lines.push("Hero Performance");
+        lines.push("  Hero | Lost | Loss % | Kills | Kill %");
+        Object.entries(attacker.heroes).forEach(([cls, hero]: [string, any]) => {
+          const lost = hero.count_lost || 0;
+          const lossPct = hero.loss_pct ? (hero.loss_pct * 100).toFixed(1) : "0.0";
+          const kills = hero.kills || 0;
+          const killPct = hero.kill_pct ? (hero.kill_pct * 100).toFixed(1) : "0.0";
+          lines.push(`  ${hero.name} | ${lost} | ${lossPct}% | ${kills} | ${killPct}%`);
+        });
+        lines.push("");
+      }
+      
+      // Attacker Cumulative % Bonuses
+      if (battleData.bonuses?.attacker) {
+        lines.push("Cumulative % Bonuses");
+        const bonus = flattenBonus(battleData.bonuses.attacker);
+        Object.entries(bonus).forEach(([stat, val]) => {
+          lines.push(`  ${stat}: ${(val * 100).toFixed(1)}%`);
+        });
+        lines.push("");
+      }
+      
+      // Defender section
+      lines.push("DEFENDER");
+      lines.push("=".repeat(20));
+      
+      // Defender Overview
+      lines.push("Defender Overview");
+      lines.push(`  Winner: ${battleData.winner.toUpperCase()}`);
+      lines.push(`  Rounds: ${battleData.rounds}`);
+      lines.push(`  Totals: Start ${defender.summary.start}, End ${defender.summary.end}, Losses ${defender.summary.losses}, Loss % ${(defender.summary.loss_pct * 100).toFixed(1)}%, Kills ${defender.summary.kills}, Kill % ${(defender.summary.kill_pct * 100).toFixed(1)}%`);
+      lines.push("");
+      
+      // Defender Expedition-Skill Impacts
+      if (battleData.passive_effects?.defender) {
+        lines.push("Expedition-Skill Impacts");
+        const passives = flattenPassives(battleData.passive_effects.defender);
+        passives.forEach(passive => {
+          lines.push(`  ${passive}`);
+        });
+        lines.push("");
+      }
+      
+      // Defender Troop Skills
+      ["Infantry", "Lancer", "Marksman"].forEach(cls => {
+        const troopSkillSet = new Set([
+          "Master Brawler", "Bands of Steel", "Crystal Shield", "Body of Light",
+          "Charge", "Ambusher", "Crystal Lance", "Incandescent Field",
+          "Ranged Strike", "Volley", "Crystal Gunpowder", "Flame Charge"
+        ]);
+        
+        // Process proc_stats the same way as the UI logic
+        const combinedSkills: Record<string, number> = {};
+        
+        // Iterate over all skills in proc_stats.defender
+        Object.entries(battleData.proc_stats?.defender || {}).forEach(([skill, clsMap]) => {
+          if (troopSkillSet.has(skill)) {
+            const clsMapTyped = clsMap as Record<string, number>;
+            
+            // Check if this skill applies to this class
+            if (clsMapTyped[cls] || clsMapTyped["All"]) {
+              const count = (clsMapTyped[cls] || 0) + (clsMapTyped["All"] || 0);
+              if (count > 0) {
+                combinedSkills[skill] = count;
+              }
+            }
+          }
+        });
+        
+        const skillEntries = Object.entries(combinedSkills).filter(([_, count]) => count > 0);
+        if (skillEntries.length > 0) {
+          lines.push(`${cls} Troop Skills`);
+          skillEntries.forEach(([skill, count], index) => {
+            lines.push(`  ${index + 1}. ${skill}: ${count}`);
+          });
+        } else {
+          lines.push(`${cls} Troop Skills`);
+          lines.push("  — none —");
+        }
+        lines.push("");
+      });
+      
+      // Defender Kills & Survivors
+      lines.push("Kills & Survivors");
+      ["Infantry", "Lancer", "Marksman"].forEach(cls => {
+        const kills = attacker.kills?.[cls as keyof typeof attacker.kills] || 0;
+        const survivors = defender.survivors?.[cls as keyof typeof defender.survivors] || 0;
+        lines.push(`  ${cls}: Kills ${kills}, Survivors ${survivors}`);
+      });
+      lines.push("");
+      
+      // Defender Details
+      if (defender.heroes) {
+        lines.push("Defender Details");
+        Object.entries(defender.heroes).forEach(([cls, hero]: [string, any]) => {
+          lines.push(`  ${hero.name}: Gen ${hero.generation}, Class ${cls}, EW Lv ${hero.exclusive_weapon?.level ?? "-"}, Start ${hero.count_start}, End ${hero.count_end}`);
+        });
+        lines.push("");
+      }
+      
+      // Defender Hero Performance
+      if (defender.heroes) {
+        lines.push("Hero Performance");
+        lines.push("  Hero | Lost | Loss % | Kills | Kill %");
+        Object.entries(defender.heroes).forEach(([cls, hero]: [string, any]) => {
+          const lost = hero.count_lost || 0;
+          const lossPct = hero.loss_pct ? (hero.loss_pct * 100).toFixed(1) : "0.0";
+          const kills = hero.kills || 0;
+          const killPct = hero.kill_pct ? (hero.kill_pct * 100).toFixed(1) : "0.0";
+          lines.push(`  ${hero.name} | ${lost} | ${lossPct}% | ${kills} | ${killPct}%`);
+        });
+        lines.push("");
+      }
+      
+      // Defender Cumulative % Bonuses
+      if (battleData.bonuses?.defender) {
+        lines.push("Cumulative % Bonuses");
+        const bonus = flattenBonus(battleData.bonuses.defender);
+        Object.entries(bonus).forEach(([stat, val]) => {
+          lines.push(`  ${stat}: ${(val * 100).toFixed(1)}%`);
+        });
+        lines.push("");
+      }
+    }
+    
+    return lines.join("\n");
+  };
+
   return (
     <ScrollView style={[styles.results, { maxHeight: 900 }]} nestedScrollEnabled={Platform.OS !== "web"}>
       <View style={{ flexDirection: "row", marginBottom: 8 }}>
@@ -158,12 +494,32 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
           <Text style={styles.buttonText}>Re-Run Battle</Text>
         </TouchableOpacity>
       </View>
-      <TouchableOpacity
-        onPress={copyAll}
-        style={[styles.buttonContainer, { backgroundColor: "#6B7280", marginBottom: 16 }]}
-      >
-        <Text style={styles.buttonText}>Copy All Results</Text>
-      </TouchableOpacity>
+      <View style={[styles.actionsRow, { marginBottom: 16 }]}>
+        <View style={{ flex: 1, marginRight: 8 }}>
+          <TouchableOpacity
+            onPress={copyAll}
+            style={[styles.buttonContainer, { backgroundColor: "#6B7280" }]}
+          >
+            <Text style={styles.buttonText}>Copy All</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={{ flex: 1, marginRight: 8 }}>
+          <TouchableOpacity
+            onPress={copyJson}
+            style={[styles.buttonContainer, { backgroundColor: "#059669" }]}
+          >
+            <Text style={styles.buttonText}>Copy JSON</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={{ flex: 1 }}>
+          <TouchableOpacity
+            onPress={copyFormatted}
+            style={[styles.buttonContainer, { backgroundColor: "#DC2626" }]}
+          >
+            <Text style={styles.buttonText}>Copy Formatted</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
       <View style={styles.segmented}>
         <TouchableOpacity
           style={[styles.segmentedBtn, viewMode === 'detailed' ? styles.segmentedBtnActive : null]}

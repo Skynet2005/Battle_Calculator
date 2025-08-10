@@ -187,6 +187,32 @@ TROOP_DEFINITIONS = {
             "Health": 0.0
         }
     },
+    "Infantry (FC10)": {
+        "Power": 121,
+        "Defense": 26,
+        "Lethality": 16,
+        "Attack": 18,
+        "Health": 25,
+        "StatBonuses": {
+            "Attack": 0.0,
+            "Defense": 0.0,
+            "Lethality": 0.0,
+            "Health": 0.0
+        }
+    },
+    "Helios Infantry (FC10)": {
+        "Power": 148,
+        "Defense": 28,
+        "Lethality": 18,
+        "Attack": 19,
+        "Health": 27,
+        "StatBonuses": {
+            "Attack": 0.0,
+            "Defense": 0.0,
+            "Lethality": 0.0,
+            "Health": 0.0
+        }
+    },
     "Lancer (FC1)": {
         "Power": 71,
         "Defense": 12,
@@ -369,6 +395,32 @@ TROOP_DEFINITIONS = {
             "Health": 0.0
         }
     },
+    "Lancer (FC10)": {
+        "Power": 121,
+        "Defense": 19,
+        "Lethality": 24,
+        "Attack": 26,
+        "Health": 17,
+        "StatBonuses": {
+            "Attack": 0.0,
+            "Defense": 0.0,
+            "Lethality": 0.0,
+            "Health": 0.0
+        }
+    },
+    "Helios Lancer (FC10)": {
+        "Power": 148,
+        "Defense": 21,
+        "Lethality": 26,
+        "Attack": 28,
+        "Health": 20,
+        "StatBonuses": {
+            "Attack": 0.0,
+            "Defense": 0.0,
+            "Lethality": 0.0,
+            "Health": 0.0
+        }
+    },
     "Marksman (FC1)": {
         "Power": 71,
         "Defense": 11,
@@ -544,6 +596,32 @@ TROOP_DEFINITIONS = {
         "Lethality": 26,
         "Attack": 28,
         "Health": 18,
+        "StatBonuses": {
+            "Attack": 0.0,
+            "Defense": 0.0,
+            "Lethality": 0.0,
+            "Health": 0.0
+        }
+    },
+    "Marksman (FC10)": {
+        "Power": 121,
+        "Defense": 19,
+        "Lethality": 25,
+        "Attack": 27,
+        "Health": 17,
+        "StatBonuses": {
+            "Attack": 0.0,
+            "Defense": 0.0,
+            "Lethality": 0.0,
+            "Health": 0.0
+        }
+    },
+    "Helios Marksman (FC10)": {
+        "Power": 148,
+        "Defense": 21,
+        "Lethality": 27,
+        "Attack": 30,
+        "Health": 20,
         "StatBonuses": {
             "Attack": 0.0,
             "Defense": 0.0,

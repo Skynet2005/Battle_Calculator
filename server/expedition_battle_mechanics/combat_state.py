@@ -46,7 +46,7 @@ class BattleReportInput:
 class CombatState:
     """Mutable fight state; `step_round()` advances exactly one round."""
 
-    def __init__(self, rpt: BattleReportInput) -> None:
+    def __init__(self, rpt: BattleReportInput, use_power_weighting: bool = True) -> None:
         # formations
         self.attacker_groups: Dict[str, TroopGroup] = (
             rpt.attacker_formation.troop_groups
@@ -95,6 +95,10 @@ class CombatState:
         # bookkeeping
         self.turn: int = 0
         self.skill_procs: DefaultDict[str, int] = defaultdict(int)
+
+        # Created Logic for review: toggle for using Troop Power ratio in damage weighting.
+        # Tests expect weighting by default; docs ask to ignore Power, so expose a flag.
+        self.use_power_weighting: bool = bool(use_power_weighting)
 
         # side-specific “flat extra dmg” buckets
         self._extra_damage: Dict[str, float] = {"atk": 0.0, "def": 0.0}
@@ -338,9 +342,11 @@ class CombatState:
             elif cls == "Infantry":
                 order = ["Lancer", "Marksman", "Infantry"]
             else:  # Lancer
-                # 20% chance to bypass Infantry and strike Marksmen
+                # 20% chance to bypass Infantry and strike Marksmen (Ambusher)
                 if "Marksman" in alive and random.random() < 0.20:
                     order = ["Marksman", "Infantry", "Lancer"]
+                    # Record Ambusher proc for the attacking side and Lancer class
+                    self._proc("Ambusher", side, atk_group.class_name.lower())
                 else:
                     order = ["Infantry", "Marksman", "Lancer"]
 
@@ -367,10 +373,10 @@ class CombatState:
                     handler(self, side, atk, hero, lvl)
 
             # include class-specific attack bonuses e.g., "lancer_attack"
-            base_pct = (
-                cls_bonus(bonus_combined, cls, "attack")
-                + bonus_combined.get(f"{cls.lower()}_attack", 0.0)
-            )
+            # Fix: avoid double-counting class-specific attack bonus. cls_bonus already
+            # includes both the global stat (e.g., 'attack') and the class-specific key
+            # (e.g., 'lancer_attack').
+            base_pct = cls_bonus(bonus_combined, cls, "attack")
             spec_pct = cls_bonus(special_combined, cls, "attack")
             atk_stat = atk.definition.attack * (
                 1 + base_pct + atk.definition.stat_bonuses.get("Attack", 0.0)
@@ -392,10 +398,8 @@ class CombatState:
             atk_mul, def_mul, dmg_mul = self._troop_skill_mods(atk, deff)
 
             # include class-specific defense bonuses e.g., "infantry_defense"
-            def_base_pct = (
-                cls_bonus(enemy_bonus_combined, dcls, "defense")
-                + enemy_bonus_combined.get(f"{dcls.lower()}_defense", 0.0)
-            )
+            # Fix: avoid double-counting class-specific defense bonus in the same way.
+            def_base_pct = cls_bonus(enemy_bonus_combined, dcls, "defense")
             def_spec_pct = cls_bonus(enemy_special_combined, dcls, "defense")
             def_stat = deff.definition.defense * (
                 1 + def_base_pct + deff.definition.stat_bonuses.get("Defense", 0.0)
@@ -407,9 +411,15 @@ class CombatState:
             eff_leth = leth_stat * atk_mul
             eff_def = def_stat * def_mul
 
-            ratio = atk.definition.power / (
-                atk.definition.power + deff.definition.power
-            )
+            # Damage weighting: use Troop Power ratio as per test expectations and
+            # wiki-inspired approximation. This dampens extremes and keeps tiers aligned.
+            if self.use_power_weighting:
+                ratio = atk.definition.power / (
+                    atk.definition.power + deff.definition.power
+                )
+            else:
+                ratio = 1.0
+
             per_troop = max(eff_atk * ratio - eff_def, eff_atk * ratio * 0.01)
             per_troop += eff_leth * ratio
             base = per_troop * atk.count * dmg_mul

@@ -1,0 +1,543 @@
+# Level 1
+- Weapons Prep 1 - Level 1 - Troop Attack 0.5%, Power 4200
+- Weapons Prep 1 - Level 2 - Troop Attack 1.0%, Power 8400
+- Weapons Prep 1 - Level 3 - Troop Attack 1.5%, Power 12600
+# Level 2
+- Weapons Prep 2 - Level 1 - Troop Attack 0.75%, Power 6300
+- Weapons Prep 2 - Level 2 - Troop Attack 1.5%, Power 12600
+- Weapons Prep 2 - Level 3 - Troop Attack 2.5%, Power 21000
+# Level 3
+- Weapons Prep 3 - Level 1 - Troop Attack 1%, Power 8400
+- Weapons Prep 3 - Level 2 - Troop Attack 2%, Power 16800
+- Weapons Prep 3 - Level 3 - Troop Attack 3%, Power 25200
+- Weapons Prep 3 - Level 4 - Troop Attack 4.5%, Power 33800
+# Level 4
+- Weapons Prep 4 - Level 1 - Troop Attack 1.75%, Power 14700
+- Weapons Prep 4 - Level 2 - Troop Attack 3.5%, Power 29400
+- Weapons Prep 4 - Level 3 - Troop Attack 5.25%, Power 44100
+- Weapons Prep 4 - Level 4 - Troop Attack 7%, Power 58800
+- Weapons Prep 4 - Level 5 - Troop Attack 10%, Power 84000
+# Level 5
+- Weapons Prep 5 - Level 1 - Troop Attack 2%, Power 16800
+- Weapons Prep 5 - Level 2 - Troop Attack 4%, Power 33600
+- Weapons Prep 5 - Level 3 - Troop Attack 6%, Power 50400
+- Weapons Prep 5 - Level 4 - Troop Attack 8%, Power 67200
+- Weapons Prep 5 - Level 5 - Troop Attack 10%, Power 84000
+- Weapons Prep 5 - Level 6 - Troop Attack 13.5%, Power 113400
+# Level 6
+- Weapons Prep 6 - Level 1 - Troop Attack 2.25%, Power 18900
+- Weapons Prep 6 - Level 2 - Troop Attack 4.5%, Power 37800
+- Weapons Prep 6 - Level 3 - Troop Attack 6.75%, Power 56700
+- Weapons Prep 6 - Level 4 - Troop Attack 9%, Power 75600
+- Weapons Prep 6 - Level 5 - Troop Attack 11.25%, Power 94500
+- Weapons Prep 6 - Level 6 - Troop Attack 15.25%, Power 128100
+
+# Level 1
+- Reprisal Tactics 1 - Level 1 - Infantry Attack 1.25%, Power 1750
+- Reprisal Tactics 1 - Level 2 - Infantry Attack 2.5%, Power 3500
+- Reprisal Tactics 1 - Level 3 - Infantry Attack 4%, Power 5600
+# Level 2
+- Reprisal Tactics 2 - Level 1 - Infantry Attack 1.75%, Power 2450
+- Reprisal Tactics 2 - Level 2 - Infantry Attack 3.9%, Power 4900
+- Reprisal Tactics 2 - Level 3 - Infantry Attack 5.5%, Power 7700
+# Level 3
+- Reprisal Tactics 3 - Level 1 - Infantry Attack 12.5%, Power 3500
+- Reprisal Tactics 3 - Level 2 - Infantry Attack 5%, Power 7000
+- Reprisal Tactics 3 - Level 3 - Infantry Attack 7.5%, Power 10500
+- Reprisal Tactics 3 - Level 4 - Infantry Attack 11.5%, Power 16100
+# Level 4
+- Reprisal Tactics 4 - Level 1 - Infantry Attack 4%, Power 5600
+- Reprisal Tactics 4 - Level 2 - Infantry Attack 8%, Power 11200
+- Reprisal Tactics 4 - Level 3 - Infantry Attack 12%, Power 16800
+- Reprisal Tactics 4 - Level 4 - Infantry Attack 16%, Power 22400
+- Reprisal Tactics 4 - Level 5 - Infantry Attack 22.5%, Power 31500
+# Level 5
+- Reprisal Tactics 5 - Level 1 - Infantry Attack 4.75%, Power 6650
+- Reprisal Tactics 5 - Level 2 - Infantry Attack 9.5%, Power 13300
+- Reprisal Tactics 5 - Level 3 - Infantry Attack 14.25%, Power 19950
+- Reprisal Tactics 5 - Level 4 - Infantry Attack 19%, Power 26600
+- Reprisal Tactics 5 - Level 5 - Infantry Attack 23.75%, Power 33250
+- Reprisal Tactics 5 - Level 6 - Infantry Attack 31.75%, Power 44450
+# Level 6
+- Reprisal Tactics 6 - Level 1 - Infantry Attack 5.5%, Power 7700
+- Reprisal Tactics 6 - Level 2 - Infantry Attack 11%, Power 15400
+- Reprisal Tactics 6 - Level 3 - Infantry Attack 16.5%, Power 23100
+- Reprisal Tactics 6 - Level 4 - Infantry Attack 22%, Power 30800
+- Reprisal Tactics 6 - Level 5 - Infantry Attack 27.5%, Power 38500
+- Reprisal Tactics 6 - Level 6 - Infantry Attack 36.5%, Power 51100
+
+# Level 1
+- Precision Targeting 1 - Level 1 - Level 1 - Marksman Attack 1.25%, Power 4375
+- Precision Targeting 1 - Level 2 - Marksman Attack 2.5%, Power 8750
+- Precision Targeting 1 - Level 3 - Marksman Attack 4%, Power 14000
+# Level 2
+- Precision Targeting 2 - Level 1 - Marksman Attack 1.75%, Power 6300
+- Precision Targeting 2 - Level 2 - Marksman Attack 3.5%, Power 12250
+- Precision Targeting 2 - Level 3 - Marksman Attack 5.5%, Power 19250
+# Level 3
+- Precision Targeting 3 - Level 1 - Marksman Attack 2.5%, Power 8750
+- Precision Targeting 3 - Level 2 - Marksman Attack 5%, Power 17500
+- Precision Targeting 3 - Level 3 - Marksman Attack 7.5%, Power 26250
+- Precision Targeting 3 - Level 4 - Marksman Attack 11.5%, Power 40250
+# Level 4
+- Precision Targeting 4 - Level 1 - Marksman Attack 4%, Power 14000
+- Precision Targeting 4 - Level 2 - Marksman Attack 8%, Power 28000
+- Precision Targeting 4 - Level 3 - Marksman Attack 12%, Power 42000
+- Precision Targeting 4 - Level 4 - Marksman Attack 16%, Power 56000
+- Precision Targeting 4 - Level 5 - Marksman Attack 22.5%, Power 78750
+# Level 5
+- Precision Targeting 5 - Level 1 - Marksman Attack 4.75%, Power 16625
+- Precision Targeting 5 - Level 2 - Marksman Attack 9.5%, Power 33250
+- Precision Targeting 5 - Level 3 - Marksman Attack 14.25%, Power 49875
+- Precision Targeting 5 - Level 4 - Marksman Attack 19%, Power 66500
+- Precision Targeting 5 - Level 5 - Marksman Attack 23.75%, Power 83125
+- Precision Targeting 5 - Level 6 - Marksman Attack 31.75%, Power 111125
+# Level 6
+- Precision Targeting 6 - Level 1 - Marksman Attack 5.5%, Power 19250
+- Precision Targeting 6 - Level 2 - Marksman Attack 11%, Power 38500
+- Precision Targeting 6 - Level 3 - Marksman Attack 16.5%, Power 57750
+- Precision Targeting 6 - Level 4 - Marksman Attack 22%, Power 77000
+- Precision Targeting 6 - Level 5 - Marksman Attack 27.5%, Power 96250
+- Precision Targeting 6 - Level 6 - Marksman Attack 36.5%, Power 127750
+
+# Level 1
+- Skirmishing 1 - Level 1 - Lancer Attack 1.25%, Power 4375
+- Skirmishing 1 - Level 2 - Lancer Attack 2.5%, Power 8750
+- Skirmishing 1 - Level 3 - Lancer Attack 4%, Power 14000
+# Level 2
+- Skirmishing 2 - Level 1 - Lancer Attack 1.75%, Power 6125
+- Skirmishing 2 - Level 2 - Lancer Attack 3.5%, Power 12250
+- Skirmishing 2 - Level 3 - Lancer Attack 5.5%, Power 19250
+# Level 3
+- Skirmishing 3 - Level 1 - Lancer Attack 2.5%, Power 8750
+- Skirmishing 3 - Level 2 - Lancer Attack 5%, Power 17500
+- Skirmishing 3 - Level 3 - Lancer Attack 7.5%, Power 26250
+- Skirmishing 3 - Level 4 - Lancer Attack 11.5%, Power 40250
+# Level 4
+- Skirmishing 4 - Level 1 - Lancer Attack 4%, Power 14000
+- Skirmishing 4 - Level 2 - Lancer Attack 8%, Power 28000
+- Skirmishing 4 - Level 3 - Lancer Attack 12%, Power 42000
+- Skirmishing 4 - Level 4 - Lancer Attack 16%, Power 56000
+- Skirmishing 4 - Level 5 - Lancer Attack 22.5%, Power 78750
+# Level 5
+- Skirmishing 5 - Level 1 - Lancer Attack 4.75%, Power 16625
+- Skirmishing 5 - Level 2 - Lancer Attack 9.5%, Power 33250
+- Skirmishing 5 - Level 3 - Lancer Attack 14.25%, Power 49875
+- Skirmishing 5 - Level 4 - Lancer Attack 19%, Power 66500
+- Skirmishing 5 - Level 5 - Lancer Attack 23.75%, Power 83125
+- Skirmishing 5 - Level 6 - Lancer Attack 31.75%, Power 111125
+# Level 6
+- Skirmishing 6 - Level 1 - Lancer Attack 5.5%, Power 19250
+- Skirmishing 6 - Level 2 - Lancer Attack 11%, Power 38500
+- Skirmishing 6 - Level 3 - Lancer Attack 16.5%, Power 57750
+- Skirmishing 6 - Level 4 - Lancer Attack 22%, Power 77000
+- Skirmishing 6 - Level 5 - Lancer Attack 27.5%, Power 96250
+- Skirmishing 6 - Level 6 - Lancer Attack 36.5%, Power 127750
+
+# Level 1
+- Defensive Formations 1 - Level 1 - Infantry Defense 1.25%, Power 5625
+- Defensive Formations 1 - Level 2 - Infantry Defense 2.5%, Power 11250
+- Defensive Formations 1 - Level 3 - Infantry Defense 4%, Power 18000
+# Level 2
+- Defensive Formations 2 - Level 1 - Infantry Defense 1.75%, Power 7875
+- Defensive Formations 2 - Level 2 - Infantry Defense 3.5%, Power 15750
+- Defensive Formations 2 - Level 3 - Infantry Defense 5.5%, Power 24750
+# Level 3
+- Defensive Formations 3 - Level 1 - Infantry Defense 1.25%, Power 5625
+- Defensive Formations 3 - Level 2 - Infantry Defense 2.5%, Power 11250
+- Defensive Formations 3 - Level 3 - Infantry Defense 4%, Power 18000
+# Level 4
+- Defensive Formations 4 - Level 1 - Infantry Defense 4%, Power 18000
+- Defensive Formations 4 - Level 2 - Infantry Defense 8%, Power 36000
+- Defensive Formations 4 - Level 3 - Infantry Defense 12%, Power 54000
+- Defensive Formations 4 - Level 4 - Infantry Defense 16%, Power 72000
+- Defensive Formations 4 - Level 5 - Infantry Defense 22.5%, Power 101250
+# Level 5
+- Defensive Formations 5 - Level 1 - Infantry Defense 4.75%, Power 21375
+- Defensive Formations 5 - Level 2 - Infantry Defense 9.5%, Power 42750
+- Defensive Formations 5 - Level 3 - Infantry Defense 14.25%, Power 64125
+- Defensive Formations 5 - Level 4 - Infantry Defense 19%, Power 85500
+- Defensive Formations 5 - Level 5 - Infantry Defense 23.75%, Power 106875
+- Defensive Formations 5 - Level 6 - Infantry Defense 31.75%, Power 142875
+# Level 6
+- Defensive Formations 6 - Level 1 - Infantry Defense 5.5%, Power 24750
+- Defensive Formations 6 - Level 2 - Infantry Defense 11%, Power 49500
+- Defensive Formations 6 - Level 3 - Infantry Defense 16.5%, Power 74250
+- Defensive Formations 6 - Level 4 - Infantry Defense 22%, Power 99000
+- Defensive Formations 6 - Level 5 - Infantry Defense 27.5%, Power 123750
+- Defensive Formations 6 - Level 6 - Infantry Defense 36.5%, Power 164250
+
+# Level 1
+- Picket Lines 1 - Level 1 - Marksman Defense 1.25%, Power 3000
+- Picket Lines 1 - Level 2 - Marksman Defense 2.5%, Power 6000
+- Picket Lines 1 - Level 3 - Marksman Defense 4%, Power 9600
+# Level 2
+- Picket Lines 2 - Level 1 - Marksman Defense 1.75%, Power 4200
+- Picket Lines 2 - Level 2 - Marksman Defense 3.5%, Power 8400
+- Picket Lines 2 - Level 3 - Marksman Defense 5.5%, Power 13200
+# Level 3
+- Picket Lines 3 - Level 1 - Marksman Defense 2.5%, Power 6000
+- Picket Lines 3 - Level 2 - Marksman Defense 5%, Power 12000
+- Picket Lines 3 - Level 3 - Marksman Defense 7.5%, Power 18000
+- Picket Lines 3 - Level 4 - Marksman Defense 11.5%, Power 27600
+# Level 4
+- Picket Lines 4 - Level 1 - Marksman Defense 4%, Power 9600
+- Picket Lines 4 - Level 2 - Marksman Defense 8%, Power 19200
+- Picket Lines 4 - Level 3 - Marksman Defense 12%, Power 28800
+- Picket Lines 4 - Level 4 - Marksman Defense 16%, Power 38400
+- Picket Lines 4 - Level 5 - Marksman Defense 22.5%, Power 54000
+# Level 5
+- Picket Lines 5 - Level 1 - Marksman Defense 4.75%, Power 11400
+- Picket Lines 5 - Level 2 - Marksman Defense 9.5%, Power 22800
+- Picket Lines 5 - Level 3 - Marksman Defense 14.25%, Power 34200
+- Picket Lines 5 - Level 4 - Marksman Defense 19%, Power 45600
+- Picket Lines 5 - Level 5 - Marksman Defense 23.75%, Power 57000
+- Picket Lines 5 - Level 6 - Marksman Defense 31.75%, Power 76200
+# Level 6
+- Picket Lines 6 - Level 1 - Marksman Defense 5.5%, Power 13200
+- Picket Lines 6 - Level 2 - Marksman Defense 11%, Power 26400
+- Picket Lines 6 - Level 3 - Marksman Defense 16.5%, Power 39600
+- Picket Lines 6 - Level 4 - Marksman Defense 22%, Power 52800
+- Picket Lines 6 - Level 5 - Marksman Defense 27.5%, Power 66000
+- Picket Lines 6 - Level 6 - Marksman Defense 36.5%, Power 87600
+
+# Level 1
+- Bulwark Formations 1 - Level 1 - Lancer Defense 1.25%, Power 3000 
+- Bulwark Formations 1 - Level 2 - Lancer Defense 2.5%, Power 6000
+- Bulwark Formations 1 - Level 3 - Lancer Defense 4%, Power 9600
+# Level 2
+- Bulwark Formations 2 - Level 1 - Lancer Defense 1.75%, Power 4200
+- Bulwark Formations 2 - Level 2 - Lancer Defense 3.5%, Power 8400
+- Bulwark Formations 2 - Level 3 - Lancer Defense 5.5%, Power 13200
+# Level 3
+- Bulwark Formations 3 - Level 1 - Lancer Defense 2.5%, Power 6000
+- Bulwark Formations 3 - Level 2 - Lancer Defense 5%, Power 12000
+- Bulwark Formations 3 - Level 3 - Lancer Defense 7.5%, Power 18000
+- Bulwark Formations 3 - Level 4 - Lancer Defense 11.5%, Power 27600
+# Level 4
+- Bulwark Formations 4 - Level 1 - Lancer Defense 4%, Power 9600
+- Bulwark Formations 4 - Level 2 - Lancer Defense 8%, Power 19200
+- Bulwark Formations 4 - Level 3 - Lancer Defense 12%, Power 28800
+- Bulwark Formations 4 - Level 4 - Lancer Defense 16%, Power 38400
+- Bulwark Formations 4 - Level 5 - Lancer Defense 22.5%, Power 54000
+# Level 5
+- Bulwark Formations 5 - Level 1 - Lancer Defense 4.75%, Power 11400
+- Bulwark Formations 5 - Level 2 - Lancer Defense 9.5%, Power 22800
+- Bulwark Formations 5 - Level 3 - Lancer Defense 14.25%, Power 34200
+- Bulwark Formations 5 - Level 4 - Lancer Defense 19%, Power 45600
+- Bulwark Formations 5 - Level 5 - Lancer Defense 23.75%, Power 57000
+- Bulwark Formations 5 - Level 6 - Lancer Defense 31.75%, Power 76200
+# Level 6
+- Bulwark Formations 6 - Level 1 - Lancer Defense 5.5%, Power 13200
+- Bulwark Formations 6 - Level 2 - Lancer Defense 11%, Power 26400
+- Bulwark Formations 6 - Level 3 - Lancer Defense 16.5%, Power 39600
+- Bulwark Formations 6 - Level 4 - Lancer Defense 22%, Power 52800
+- Bulwark Formations 6 - Level 5 - Lancer Defense 27.5%, Power 66000
+- Bulwark Formations 6 - Level 6 - Lancer Defense 36.5%, Power 87600
+
+# Level 1
+- Special Defensive Training 1 - Level 1 - Troops Defense 0.5%, Power 4200
+- Special Defensive Training 1 - Level 2 - Troops Defense 1.00%, Power 8400
+- Special Defensive Training 1 - Level 3 - Troops Defense 1.5%, Power 12600
+# Level 2
+- Special Defensive Training 2 - Level 1 - Troops Defense 0.75%, Power 6300
+- Special Defensive Training 2 - Level 2 - Troops Defense 1.50%, Power 12600
+- Special Defensive Training 2 - Level 3 - Troops Defense 2.50%, Power 21000
+# Level 3
+- Special Defensive Training 3 - Level 1 - Troops Defense 1%, Power 8400
+- Special Defensive Training 3 - Level 2 - Troops Defense 2%, Power 16800
+- Special Defensive Training 3 - Level 3 - Troops Defense 3%, Power 25200
+- Special Defensive Training 3 - Level 4 - Troops Defense 4.5%, Power 37800
+# Level 4
+- Special Defensive Training 4 - Level 1 - Troops Defense 1.75%, Power 14700
+- Special Defensive Training 4 - Level 2 - Troops Defense 3.5%, Power 29400
+- Special Defensive Training 4 - Level 3 - Troops Defense 5.25%, Power 44100
+- Special Defensive Training 4 - Level 4 - Troops Defense 7%, Power 56000
+- Special Defensive Training 4 - Level 5 - Troops Defense 10%, Power 84000
+# Level 5
+- Special Defensive Training 5 - Level 1 - Troops Defense 2%, Power 16800
+- Special Defensive Training 5 - Level 2 - Troops Defense 4%, Power 33600
+- Special Defensive Training 5 - Level 3 - Troops Defense 6%, Power 50400
+- Special Defensive Training 5 - Level 4 - Troops Defense 8%, Power 67200
+- Special Defensive Training 5 - Level 5 - Troops Defense 10%, Power 84000
+- Special Defensive Training 5 - Level 6 - Troops Defense 13.5%, Power 113400
+# Level 6
+- Special Defensive Training 6 - Level 1 - Troops Defense 2.25%, Power 18900
+- Special Defensive Training 6 - Level 2 - Troops Defense 4.5%, Power 37800
+- Special Defensive Training 6 - Level 3 - Troops Defense 6.75%, Power 56700
+- Special Defensive Training 6 - Level 4 - Troops Defense 9%, Power 75600
+- Special Defensive Training 6 - Level 5 - Troops Defense 11.25%, Power 94500
+- Special Defensive Training 6 - Level 6 - Troops Defense 15.25%, Power 128100
+
+# Level 1
+- Survival Techniques 1 - Level 1 - Troops Health 0.5%, Power 4200 
+- Survival Techniques 1 - Level 2 - Troops Health 1.0%, Power 8400
+- Survival Techniques 1 - Level 3 - Troops Health 1.5%, Power 12600
+# Level 2
+- Survival Techniques 2 - Level 1 - Troops Health 0.75%, Power 6300
+- Survival Techniques 2 - Level 2 - Troops Health 1.5%, Power 12600
+- Survival Techniques 2 - Level 3 - Troops Health 2.5%, Power 21000
+# Level 3
+- Survival Techniques 3 - Level 1 - Troops Health 1%, Power 8400
+- Survival Techniques 3 - Level 2 - Troops Health 2%, Power 16800
+- Survival Techniques 3 - Level 3 - Troops Health 3%, Power 25200
+- Survival Techniques 3 - Level 4 - Troops Health 4.5%, Power 37800
+# Level 4
+- Survival Techniques 4 - Level 1 - Troops Health 1.75%, Power 14700
+- Survival Techniques 4 - Level 2 - Troops Health 3.5%, Power 29400
+- Survival Techniques 4 - Level 3 - Troops Health 5.25%, Power 44100
+- Survival Techniques 4 - Level 4 - Troops Health 7%, Power 58800
+- Survival Techniques 4 - Level 5 - Troops Health 10%, Power 84000
+# Level 5
+- Survival Techniques 5 - Level 1 - Troops Health 2%, Power 16800
+- Survival Techniques 5 - Level 2 - Troops Health 4%, Power 33600
+- Survival Techniques 5 - Level 3 - Troops Health 6%, Power 50400
+- Survival Techniques 5 - Level 4 - Troops Health 8%, Power 67200
+- Survival Techniques 5 - Level 5 - Troops Health 10%, Power 84000
+- Survival Techniques 5 - Level 6 - Troops Health 13.5%, Power 113400
+# Level 6
+- Survival Techniques 6 - Level 1 - Troops Health 2.25%, Power 18900
+- Survival Techniques 6 - Level 2 - Troops Health 4.5%, Power 37800
+- Survival Techniques 6 - Level 3 - Troops Health 6.75%, Power 56700
+- Survival Techniques 6 - Level 4 - Troops Health 9%, Power 75600
+- Survival Techniques 6 - Level 5 - Troops Health 11.25%, Power 94500
+- Survival Techniques 6 - Level 6 - Troops Health 15.25%, Power 128100
+
+# Level 1
+- Assault Techniques 1 - Level 1 - Troops Lethality 0.5%, Power 4200
+- Assault Techniques 1 - Level 2 - Troops Lethality 1.0%, Power 8400
+- Assault Techniques 1 - Level 3 - Troops Lethality 1.5%, Power 12600
+# Level 2
+- Assault Techniques 2 - Level 1 - Troops Lethality 0.75%, Power 6300
+- Assault Techniques 2 - Level 2 - Troops Lethality 1.5%, Power 12600
+- Assault Techniques 2 - Level 3 - Troops Lethality 2.5%, Power 21000
+# Level 3
+- Assault Techniques 3 - Level 1 - Troops Lethality 1%, Power 8400
+- Assault Techniques 3 - Level 2 - Troops Lethality 2%, Power 16800
+- Assault Techniques 3 - Level 3 - Troops Lethality 3%, Power 25200
+- Assault Techniques 3 - Level 4 - Troops Lethality 4.5%, Power 37800
+# Level 4
+- Assault Techniques 4 - Level 1 - Troops Lethality 1.75%, Power 14700
+- Assault Techniques 4 - Level 2 - Troops Lethality 3.5%, Power 29400
+- Assault Techniques 4 - Level 3 - Troops Lethality 5.25%, Power 44100
+- Assault Techniques 4 - Level 4 - Troops Lethality 7%, Power 58800
+- Assault Techniques 4 - Level 5 - Troops Lethality 10%, Power 84000
+# Level 5
+- Assault Techniques 5 - Level 1 - Troops Lethality 2%, Power 16800
+- Assault Techniques 5 - Level 2 - Troops Lethality 4%, Power 33600
+- Assault Techniques 5 - Level 3 - Troops Lethality 6%, Power 50400
+- Assault Techniques 5 - Level 4 - Troops Lethality 8%, Power 67200
+- Assault Techniques 5 - Level 5 - Troops Lethality 10%, Power 84000
+- Assault Techniques 5 - Level 6 - Troops Lethality 13.5%, Power 113400
+# Level 6
+- Assault Techniques 6 - Level 1 - Troops Lethality 2.25%, Power 18900
+- Assault Techniques 6 - Level 2 - Troops Lethality 4.5%, Power 37800
+- Assault Techniques 6 - Level 3 - Troops Lethality 6.75%, Power 56700
+- Assault Techniques 6 - Level 4 - Troops Lethality 9%, Power 75600
+- Assault Techniques 6 - Level 5 - Troops Lethality 11.25%, Power 94500
+- Assault Techniques 6 - Level 6 - Troops Lethality 15.25%, Power 128100
+
+# Level 1
+- Close Combat 1 - Level 1 - Infantry Lethality 1.25%, Power 1750
+- Close Combat 1 - Level 2 - Infantry Lethality 2.5%, Power 3500
+- Close Combat 1 - Level 3 - Infantry Lethality 4%, Power 5600
+# Level 2
+- Close Combat 2 - Level 1 - Infantry Lethality 1.75%, Power 2450
+- Close Combat 2 - Level 2 - Infantry Lethality 3.5%, Power 4900
+- Close Combat 2 - Level 3 - Infantry Lethality 5.5%, Power 7700
+# Level 3
+- Close Combat 3 - Level 1 - Infantry Lethality 2.5%, Power 3500
+- Close Combat 3 - Level 2 - Infantry Lethality 5%, Power 7000
+- Close Combat 3 - Level 3 - Infantry Lethality 7.5%, Power 10500
+- Close Combat 3 - Level 4 - Infantry Lethality 11.5%, Power 16100
+# Level 4
+- Close Combat 4 - Level 1 - Infantry Lethality 4%, Power 5600
+- Close Combat 4 - Level 2 - Infantry Lethality 8%, Power 11200
+- Close Combat 4 - Level 3 - Infantry Lethality 12%, Power 16800
+- Close Combat 4 - Level 4 - Infantry Lethality 16%, Power 22400
+- Close Combat 4 - Level 5 - Infantry Lethality 22.5%, Power 31500
+# Level 5
+- Close Combat 5 - Level 1 - Infantry Lethality 4.75%, Power 6650
+- Close Combat 5 - Level 2 - Infantry Lethality 9.5%, Power 13300
+- Close Combat 5 - Level 3 - Infantry Lethality 14.25%, Power 19950
+- Close Combat 5 - Level 4 - Infantry Lethality 19%, Power 26600
+- Close Combat 5 - Level 5 - Infantry Lethality 23.75%, Power 33250
+- Close Combat 5 - Level 6 - Infantry Lethality 31.75%, Power 44450
+# Level 6
+- Close Combat 6 - Level 1 - Infantry Lethality 5.5%, Power 7700
+- Close Combat 6 - Level 2 - Infantry Lethality 11%, Power 15400
+- Close Combat 6 - Level 3 - Infantry Lethality 16.5%, Power 23100
+- Close Combat 6 - Level 4 - Infantry Lethality 22%, Power 30800
+- Close Combat 6 - Level 5 - Infantry Lethality 27.5%, Power 38500
+- Close Combat 6 - Level 6 - Infantry Lethality 36.5%, Power 51100
+
+# Level 1
+- Targeted Sniping 1 - Level 1 - Marksman Lethality 1.25%, Power 4375
+- Targeted Sniping 1 - Level 2 - Marksman Lethality 2.5%, Power 8750
+- Targeted Sniping 1 - Level 3 - Marksman Lethality 4%, Power 14000
+# Level 2
+- Targeted Sniping 2 - Level 1 - Marksman Lethality 1.75%, Power 6125
+- Targeted Sniping 2 - Level 2 - Marksman Lethality 3.5%, Power 12250
+- Targeted Sniping 2 - Level 3 - Marksman Lethality 5.5%, Power 19250
+# Level 3
+- Targeted Sniping 3 - Level 1 - Marksman Lethality 2.5%, Power 8750
+- Targeted Sniping 3 - Level 2 - Marksman Lethality 5%, Power 17500
+- Targeted Sniping 3 - Level 3 - Marksman Lethality 7.5%, Power 26250
+- Targeted Sniping 3 - Level 4 - Marksman Lethality 11.5%, Power 40250
+# Level 4
+- Targeted Sniping 4 - Level 1 - Marksman Lethality 4%, Power 14000
+- Targeted Sniping 4 - Level 2 - Marksman Lethality 8%, Power 28000
+- Targeted Sniping 4 - Level 3 - Marksman Lethality 12%, Power 42000
+- Targeted Sniping 4 - Level 4 - Marksman Lethality 16%, Power 56000
+- Targeted Sniping 4 - Level 5 - Marksman Lethality 22.5%, Power 78750
+# Level 5
+- Targeted Sniping 5 - Level 1 - Marksman Lethality 4.75%, Power 16625
+- Targeted Sniping 5 - Level 2 - Marksman Lethality 9.5%, Power 33250
+- Targeted Sniping 5 - Level 3 - Marksman Lethality 14.25%, Power 49875
+- Targeted Sniping 5 - Level 4 - Marksman Lethality 19%, Power 66500
+- Targeted Sniping 5 - Level 5 - Marksman Lethality 23.75%, Power 83125
+- Targeted Sniping 5 - Level 6 - Marksman Lethality 31.75%, Power 111125
+# Level 6
+- Targeted Sniping 6 - Level 1 - Marksman Lethality 5.5%, Power 19250
+- Targeted Sniping 6 - Level 2 - Marksman Lethality 11%, Power 38500
+- Targeted Sniping 6 - Level 3 - Marksman Lethality 16.5%, Power 57750
+- Targeted Sniping 6 - Level 4 - Marksman Lethality 22%, Power 77000
+- Targeted Sniping 6 - Level 5 - Marksman Lethality 27.5%, Power 96250
+- Targeted Sniping 6 - Level 6 - Marksman Lethality 36.5%, Power 127750
+
+# Level 1
+- Lance Upgrade 1 - Level 1 - Lancer Lethality 1.25%, Power 4375
+- Lance Upgrade 1 - Level 2 - Lancer Lethality 2.5%, Power 8750
+- Lance Upgrade 1 - Level 3 - Lancer Lethality 4%, Power 14000
+# Level 2
+- Lance Upgrade 2 - Level 1 - Lancer Lethality 1.75%, Power 6125
+- Lance Upgrade 2 - Level 2 - Lancer Lethality 3.5%, Power 12250
+- Lance Upgrade 2 - Level 3 - Lancer Lethality 5.5%, Power 19250
+# Level 3
+- Lance Upgrade 3 - Level 1 - Lancer Lethality 2.5%, Power 8750
+- Lance Upgrade 3 - Level 2 - Lancer Lethality 5%, Power 17500
+- Lance Upgrade 3 - Level 3 - Lancer Lethality 7.5%, Power 26250
+- Lance Upgrade 3 - Level 4 - Lancer Lethality 11.5%, Power 40250
+# Level 4
+- Lance Upgrade 4 - Level 1 - Lancer Lethality 4%, Power 14000
+- Lance Upgrade 4 - Level 2 - Lancer Lethality 8%, Power 28000
+- Lance Upgrade 4 - Level 3 - Lancer Lethality 12%, Power 42000
+- Lance Upgrade 4 - Level 4 - Lancer Lethality 16%, Power 56000
+- Lance Upgrade 4 - Level 5 - Lancer Lethality 22.5%, Power 78750
+# Level 5
+- Lance Upgrade 5 - Level 1 - Lancer Lethality 4.75%, Power 16625
+- Lance Upgrade 5 - Level 2 - Lancer Lethality 9.5%, Power 33250
+- Lance Upgrade 5 - Level 3 - Lancer Lethality 14.25%, Power 49875
+- Lance Upgrade 5 - Level 4 - Lancer Lethality 19%, Power 66500
+- Lance Upgrade 5 - Level 5 - Lancer Lethality 23.75%, Power 83125
+- Lance Upgrade 5 - Level 6 - Lancer Lethality 31.75%, Power 111125
+# Level 6
+- Lance Upgrade 6 - Level 1 - Lancer Lethality 5.5%, Power 19250
+- Lance Upgrade 6 - Level 2 - Lancer Lethality 11%, Power 38500
+- Lance Upgrade 6 - Level 3 - Lancer Lethality 16.5%, Power 57750
+- Lance Upgrade 6 - Level 4 - Lancer Lethality 22%, Power 77000
+- Lance Upgrade 6 - Level 5 - Lancer Lethality 27.5%, Power 96250
+- Lance Upgrade 6 - Level 6 - Lancer Lethality 36.5%, Power 127750
+
+# Level 1
+- Shield Upgrade 1 - Level 1 - Infantry Health 1.25%, Power 5625
+- Shield Upgrade 1 - Level 2 - Infantry Health 2.5%, Power 11250
+- Shield Upgrade 1 - Level 3 - Infantry Health 4%, Power 18000
+# Level 2
+- Shield Upgrade 2 - Level 1 - Infantry Health 1.75%, Power 7875
+- Shield Upgrade 2 - Level 2 - Infantry Health 3.5%, Power 15750
+- Shield Upgrade 2 - Level 3 - Infantry Health 5.5%, Power 24750
+# Level 3
+- Shield Upgrade 3 - Level 1 - Infantry Health 2.5%, Power 11250
+- Shield Upgrade 3 - Level 2 - Infantry Health 5%, Power 22500
+- Shield Upgrade 3 - Level 3 - Infantry Health 7.5%, Power 33750
+- Shield Upgrade 3 - Level 4 - Infantry Health 11.5%, Power 51750
+# Level 4
+- Shield Upgrade 4 - Level 1 - Infantry Health 4%, Power 18000
+- Shield Upgrade 4 - Level 2 - Infantry Health 8%, Power 36000
+- Shield Upgrade 4 - Level 3 - Infantry Health 12%, Power 54000
+- Shield Upgrade 4 - Level 4 - Infantry Health 16%, Power 72000
+- Shield Upgrade 4 - Level 5 - Infantry Health 22.5%, Power 101250
+# Level 5
+- Shield Upgrade 5 - Level 1 - Infantry Health 4.75%, Power 16625
+- Shield Upgrade 5 - Level 2 - Infantry Health 9.5%, Power 33250
+- Shield Upgrade 5 - Level 3 - Infantry Health 14.25%, Power 49875
+- Shield Upgrade 5 - Level 4 - Infantry Health 19%, Power 66500
+- Shield Upgrade 5 - Level 5 - Infantry Health 23.75%, Power 83125
+- Shield Upgrade 5 - Level 6 - Infantry Health 31.75%, Power 111125
+# Level 6
+- Shield Upgrade 6 - Level 1 - Infantry Health 5.5%, Power 24750
+- Shield Upgrade 6 - Level 2 - Infantry Health 11%, Power 49500
+- Shield Upgrade 6 - Level 3 - Infantry Health 16.5%, Power 74250
+- Shield Upgrade 6 - Level 4 - Infantry Health 22%, Power 99000
+- Shield Upgrade 6 - Level 5 - Infantry Health 27.5%, Power 123750
+- Shield Upgrade 6 - Level 6 - Infantry Health 36.5%, Power 164250
+
+# Level 1
+- Marksman Armor 1 - Level 1 - Marksman Health 1.25%, Power 3000
+- Marksman Armor 1 - Level 2 - Marksman Health 2.5%, Power 6000
+- Marksman Armor 1 - Level 3 - Marksman Health 4%, Power 9600
+# Level 2
+- Marksman Armor 2 - Level 1 - Marksman Health 1.75%, Power 4200
+- Marksman Armor 2 - Level 2 - Marksman Health 3.5%, Power 8400
+- Marksman Armor 2 - Level 3 - Marksman Health 5.5%, Power 13200
+# Level 3
+- Marksman Armor 3 - Level 1 - Marksman Health 2.5%, Power 6000
+- Marksman Armor 3 - Level 2 - Marksman Health 5%, Power 12000
+- Marksman Armor 3 - Level 3 - Marksman Health 7.5%, Power 18000
+- Marksman Armor 3 - Level 4 - Marksman Health 11.5%, Power 27600
+# Level 4
+- Marksman Armor 4 - Level 1 - Marksman Health 4%, Power 9600
+- Marksman Armor 4 - Level 2 - Marksman Health 8%, Power 19200
+- Marksman Armor 4 - Level 3 - Marksman Health 12%, Power 28800
+- Marksman Armor 4 - Level 4 - Marksman Health 16%, Power 38400
+- Marksman Armor 4 - Level 5 - Marksman Health 22.5%, Power 54000
+# Level 5
+- Marksman Armor 5 - Level 1 - Marksman Health 4.75%, Power 11400
+- Marksman Armor 5 - Level 2 - Marksman Health 9.5%, Power 22800
+- Marksman Armor 5 - Level 3 - Marksman Health 14.25%, Power 34200
+- Marksman Armor 5 - Level 4 - Marksman Health 19%, Power 45600
+- Marksman Armor 5 - Level 5 - Marksman Health 23.75%, Power 57000
+- Marksman Armor 5 - Level 6 - Marksman Health 31.75%, Power 76200
+# Level 6
+- Marksman Armor 6 - Level 1 - Marksman Health 5.5%, Power 13200
+- Marksman Armor 6 - Level 2 - Marksman Health 11%, Power 26400
+- Marksman Armor 6 - Level 3 - Marksman Health 16.5%, Power 39600
+- Marksman Armor 6 - Level 4 - Marksman Health 22%, Power 52800
+- Marksman Armor 6 - Level 5 - Marksman Health 27.5%, Power 66000
+- Marksman Armor 6 - Level 6 - Marksman Health 36.5%, Power 87600
+
+# Level 1
+- Lancer Armor 1 - Level 1 - Lancer Health 1.25%, Power 3000
+- Lancer Armor 1 - Level 2 - Lancer Health 2.5%, Power 6000
+- Lancer Armor 1 - Level 3 - Lancer Health 4%, Power 9600
+# Level 2
+- Lancer Armor 2 - Level 1 - Lancer Health 1.75%, Power 4200
+- Lancer Armor 2 - Level 2 - Lancer Health 3.5%, Power 8400
+- Lancer Armor 2 - Level 3 - Lancer Health 5.5%, Power 13200
+# Level 3
+- Lancer Armor 3 - Level 1 - Lancer Health 2.5%, Power 6000
+- Lancer Armor 3 - Level 2 - Lancer Health 5%, Power 12000
+- Lancer Armor 3 - Level 3 - Lancer Health 7.5%, Power 18000
+- Lancer Armor 3 - Level 4 - Lancer Health 11.5%, Power 27600
+# Level 4
+- Lancer Armor 4 - Level 1 - Lancer Health 4%, Power 9600
+- Lancer Armor 4 - Level 2 - Lancer Health 8%, Power 19200
+- Lancer Armor 4 - Level 3 - Lancer Health 12%, Power 28800
+- Lancer Armor 4 - Level 4 - Lancer Health 16%, Power 38400
+- Lancer Armor 4 - Level 5 - Lancer Health 22.5%, Power 54000
+# Level 5
+- Lancer Armor 5 - Level 1 - Lancer Health 4.75%, Power 11400
+- Lancer Armor 5 - Level 2 - Lancer Health 9.5%, Power 22800
+- Lancer Armor 5 - Level 3 - Lancer Health 14.25%, Power 34200
+- Lancer Armor 5 - Level 4 - Lancer Health 19%, Power 45600
+- Lancer Armor 5 - Level 5 - Lancer Health 23.75%, Power 57000
+- Lancer Armor 5 - Level 6 - Lancer Health 31.75%, Power 76200
+# Level 6
+- Lancer Armor 6 - Level 1 - Lancer Health 5.5%, Power 13200
+- Lancer Armor 6 - Level 2 - Lancer Health 11%, Power 26400
+- Lancer Armor 6 - Level 3 - Lancer Health 16.5%, Power 39600
+- Lancer Armor 6 - Level 4 - Lancer Health 22%, Power 52800
+- Lancer Armor 6 - Level 5 - Lancer Health 27.5%, Power 66000
+- Lancer Armor 6 - Level 6 - Lancer Health 36.5%, Power 87600
+

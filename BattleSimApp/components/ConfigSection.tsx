@@ -1,5 +1,6 @@
 import React from "react";
 import { Text, TextInput, TouchableOpacity, View, ActivityIndicator } from "react-native";
+import { SimplePicker } from "../utils/pickers";
 import { styles } from "../styles";
 
 interface Props {
@@ -22,27 +23,40 @@ interface Props {
 
 export const ConfigSection: React.FC<Props> = (p) => (
   <View style={styles.configSection}>
-    {/* Attack Type centered */}
-    <View style={[styles.row, styles.centerAlign]}> 
-      <Text style={styles.label}>Attack Type</Text>
-      <View style={styles.radioContainer}>
-        {(["solo", "rally"] as const).map((opt) => (
-          <TouchableOpacity
-            key={opt}
-            onPress={() => p.setAttackType(opt)}
-            style={styles.radioOption}
-          >
-            <Text style={styles.radioLabel}>{opt === "solo" ? "Solo" : "Rally"}</Text>
-            <View
-              style={[
-                styles.radioButton,
-                p.attackType === opt && styles.radioButtonSelected,
-              ]}
+    {/* Attack Type + Sim Count in one row */}
+    <View style={[styles.row, styles.inlineRow]}> 
+      <View style={{ flex: 1, paddingRight: 12 }}> 
+        <Text style={styles.label}>Attack Type</Text>
+        <View style={[styles.radioContainer, { marginTop: 8 }]}>
+          {(["solo", "rally"] as const).map((opt) => (
+            <TouchableOpacity
+              key={opt}
+              onPress={() => p.setAttackType(opt)}
+              style={styles.radioOption}
             >
-              {p.attackType === opt && <View style={styles.radioButtonInner} />}
-            </View>
-          </TouchableOpacity>
-        ))}
+              <Text style={styles.radioLabel}>{opt === "solo" ? "Solo" : "Rally"}</Text>
+              <View
+                style={[
+                  styles.radioButton,
+                  p.attackType === opt && styles.radioButtonSelected,
+                ]}
+              >
+                {p.attackType === opt && <View style={styles.radioButtonInner} />}
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+      <View style={{ flex: 1, flexDirection: "column" }}> 
+        <Text style={styles.label}>Sim Count</Text>
+        <TextInput
+          style={[styles.input, { marginTop: 8 }]}
+          value={p.sims}
+          onChangeText={p.setSims}
+          keyboardType="number-pad"
+          placeholderTextColor="#7B8794"
+          editable={!p.isRunning}
+        />
       </View>
     </View>
 
@@ -76,18 +90,7 @@ export const ConfigSection: React.FC<Props> = (p) => (
       </View>
     </View>
 
-    {/* Sim count centered */}
-    <View style={[styles.row, styles.centerAlign]}> 
-      <Text style={styles.label}>Sim Count</Text>
-      <TextInput
-        style={[styles.input, styles.smallInput]}
-        value={p.sims}
-        onChangeText={p.setSims}
-        keyboardType="number-pad"
-        placeholderTextColor="#7B8794"
-        editable={!p.isRunning}
-      />
-    </View>
+    {/* Sim count moved to the first row */}
 
     {!p.hideRunButton && (
       <TouchableOpacity

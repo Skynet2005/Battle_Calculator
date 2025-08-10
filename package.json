@@ -1,0 +1,25 @@
+{
+  "name": "battle-calculator-root",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:prisma\"",
+    "dev:backend": "cd server && python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000",
+    "dev:frontend": "cd BattleSimApp && npm start",
+    "dev:prisma": "prisma studio --port 5555",
+    "start": "npm run dev",
+    "install:all": "npm install && cd BattleSimApp && npm install && cd ../server && pip install -r ../requirements.txt",
+    "setup": "npm run install:all && npm run prisma:generate",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:studio": "prisma studio"
+  },
+  "devDependencies": {
+    "prisma": "^5.17.0",
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.17.0"
+  }
+}
+

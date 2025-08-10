@@ -1,11 +1,12 @@
 import React from "react";
 import { Text, View, TextInput, TouchableOpacity } from "react-native";
-import { ChiefGearSlot, ChiefCharmOption } from "../types";
+import { ChiefGearSlot, ChiefCharmOption, ChiefGearSelectionMap, ChiefCharmLevelsMap, ChiefSkinBonuses } from "../types";
 import { Picker } from "@react-native-picker/picker";
 import axios from "axios";
 import { ClassRow } from "./ClassRow";
 import { Hero, Class, ClassSel } from "../types";
 import { styles } from "../styles";
+import { ChiefSkinSection } from "./ChiefSkinSection";
 
 interface Props {
   side: "atk" | "def";
@@ -33,6 +34,14 @@ interface Props {
   disabled?: boolean;
   capacity: string;
   setCapacity: (v: string) => void;
+  // optional: gear/charm selection lift to parent for persistence
+  gearSelection?: ChiefGearSelectionMap;
+  onGearSelectionChange?: (v: ChiefGearSelectionMap) => void;
+  charmLevels?: ChiefCharmLevelsMap;
+  onCharmLevelsChange?: (v: ChiefCharmLevelsMap) => void;
+  // Chief Skin bonuses
+  chiefSkinBonuses?: ChiefSkinBonuses;
+  onChiefSkinBonusesChange?: (bonuses: ChiefSkinBonuses) => void;
 }
 
 export const SideSetup: React.FC<Props> = (p) => {
@@ -102,14 +111,37 @@ export const SideSetup: React.FC<Props> = (p) => {
         {!gearCollapsed && (
           <View style={[styles.row, { flexDirection: 'row' }]}>
             <View style={{ flex: 1, minWidth: 0, marginRight: 6 }}>
-              <ChiefGearSection side={p.side} hideHeader disabled={p.disabled} />
+              <ChiefGearSection
+                side={p.side}
+                hideHeader
+                disabled={p.disabled}
+                value={p.gearSelection}
+                onChange={p.onGearSelectionChange}
+              />
             </View>
             <View style={{ flex: 1, minWidth: 0, marginLeft: 6 }}>
-              <ChiefCharmsSection side={p.side} hideHeader disabled={p.disabled} />
+              <ChiefCharmsSection
+                side={p.side}
+                hideHeader
+                disabled={p.disabled}
+                value={p.charmLevels as any}
+                onChange={p.onCharmLevelsChange as any}
+              />
             </View>
           </View>
         )}
       </View>
+
+      {/* Chief Skin Bonuses */}
+      <View style={{ marginBottom: 8 }}>
+        <ChiefSkinSection
+          side={p.side}
+          value={p.chiefSkinBonuses}
+          onChange={p.onChiefSkinBonusesChange}
+          disabled={p.disabled}
+        />
+      </View>
+
       {(["Infantry", "Lancer", "Marksman"] as const).map((cls) => {
         const others = (["Infantry", "Lancer", "Marksman"] as const)
           .filter((c) => c !== cls)
@@ -220,14 +252,14 @@ export const SideSetup: React.FC<Props> = (p) => {
 /* Chief Gear UI                                                 */
 /* ────────────────────────────────────────────────────────────── */
 
-type GearProps = { side: "atk" | "def"; hideHeader?: boolean; disabled?: boolean };
+type GearProps = { side: "atk" | "def"; hideHeader?: boolean; disabled?: boolean; value?: ChiefGearSelectionMap; onChange?: (v: ChiefGearSelectionMap) => void };
 
 const gearSlots: ChiefGearSlot[] = ["Cap", "Coat", "Ring", "Watch", "Pants", "Weapon"];
 
-const ChiefGearSection: React.FC<GearProps> = ({ side, hideHeader }) => {
+const ChiefGearSection: React.FC<GearProps> = ({ side, hideHeader, value, onChange }) => {
   // Created Logic for review: fetch options once
   const [options, setOptions] = React.useState<Record<string, { tier: string; stars: number; attackPct: number; defensePct: number; power: number }[]>>({} as any);
-  const [sel, setSel] = React.useState<Record<string, { tier: string; stars: number }>>({});
+  const [sel, setSel] = React.useState<Record<string, { tier: string; stars: number }>>(value || {});
   const [totals, setTotals] = React.useState<null | {
     atk: number; def: number; pow: number; atkBonus: number; defBonus: number;
     infantry_attack_pct: number; infantry_defense_pct: number;
@@ -270,6 +302,11 @@ const ChiefGearSection: React.FC<GearProps> = ({ side, hideHeader }) => {
     });
   }, [options]);
 
+  // sync from external value
+  React.useEffect(() => {
+    if (value) setSel(value);
+  }, [value]);
+
   const tiersFor = (slot: ChiefGearSlot) => (options[slot] || []).map((o) => o.tier).filter((v, i, a) => a.indexOf(v) === i);
   const starsFor = (slot: ChiefGearSlot, tier: string) => (options[slot] || []).filter((o) => o.tier === tier).map((o) => o.stars);
 
@@ -306,6 +343,7 @@ const ChiefGearSection: React.FC<GearProps> = ({ side, hideHeader }) => {
         try {
           (global as any).dispatchEvent?.(new CustomEvent('chief-gear-charms', { detail: payload }));
         } catch {}
+        onChange && onChange(sel as ChiefGearSelectionMap);
       })
       .catch(() => setTotals(null));
   }, [sel]);
@@ -440,10 +478,10 @@ const ChiefGearSection: React.FC<GearProps> = ({ side, hideHeader }) => {
 };
 
 // Chief Charms
-const ChiefCharmsSection: React.FC<GearProps> = ({ side, hideHeader }) => {
+const ChiefCharmsSection: React.FC<GearProps> = ({ side, hideHeader, value, onChange }) => {
   // Created Logic for review: 3 charms per slot; user selects levels; totals recompute
   const [opts, setOpts] = React.useState<ChiefCharmOption[]>([]);
-  const [levelsBySlot, setLevelsBySlot] = React.useState<Record<string, [number, number, number]>>({});
+  const [levelsBySlot, setLevelsBySlot] = React.useState<Record<string, [number, number, number]>>(value as any || {});
   const [totals, setTotals] = React.useState<null | {
     leth: number; hp: number; pow: number;
     infantry_lethality_pct: number; infantry_health_pct: number;
@@ -469,6 +507,11 @@ const ChiefCharmsSection: React.FC<GearProps> = ({ side, hideHeader }) => {
       return next;
     });
   }, []);
+
+  // sync from external value
+  React.useEffect(() => {
+    if (value) setLevelsBySlot(value as any);
+  }, [value]);
 
   // Default charm levels to the last (highest) available level when empty
   React.useEffect(() => {
@@ -528,6 +571,7 @@ const ChiefCharmsSection: React.FC<GearProps> = ({ side, hideHeader }) => {
         try {
           (global as any).dispatchEvent?.(new CustomEvent('chief-gear-charms', { detail: ev }));
         } catch {}
+        onChange && onChange(levelsBySlot as any);
       })
       .catch(() => setTotals(null));
   }, [levelsBySlot]);
