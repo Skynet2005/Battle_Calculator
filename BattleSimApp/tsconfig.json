@@ -14,7 +14,11 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "baseUrl": "."
+    "baseUrl": ".",
+    "allowJs": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "moduleDetection": "force"
   },
   "include": [
     "**/*.ts",

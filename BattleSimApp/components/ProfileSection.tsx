@@ -283,7 +283,7 @@ export const ProfileSection: React.FC<Props> = ({ collectSettings, applySettings
                 <View key={`preset-${p.id}`} style={styles.tableRow}>
                   <Text style={[styles.tableCell, { flex: 2 }]}>{p.name}</Text>
                   <Text style={[styles.tableCell, { flex: 2 }]}>{new Date(p.updated_at).toLocaleString()}</Text>
-                  <View style={[styles.tableCell, { flex: 1, flexDirection: 'row', justifyContent: 'flex-end' }]}>
+                  <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-end' }}>
                     <TouchableOpacity style={styles.miniButton} onPress={() => doLoadPreset(p.id)}>
                       <Text style={styles.miniButtonText}>Load</Text>
                     </TouchableOpacity>

@@ -1,12 +1,3 @@
-/**
- * ResultsSection
- * ==============
- * • Expedition-Skill Impacts now shows *passives + hero skills* only.
- * • Built-in troop skills (Crystal Shield, Volley, etc.) are routed to three
- *   separate tables again: Infantry, Lancer, Marksman.
- * FULL FILE – no sections abbreviated.
- */
-
 import * as Clipboard from "expo-clipboard";
 import React from "react";
 import { Alert, ScrollView, Text, TouchableOpacity, View, Platform } from "react-native";
@@ -36,7 +27,7 @@ const troopSkillSet = new Set([
 ]);
 
 type Props = {
-  result: SimResult;
+  result: SimResult | null;
   onRerun: () => void;
 };
 
@@ -45,12 +36,12 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
 
   const detail: SimResult = (result as any).sample_battle ?? result;
 
-  const procStats = detail.proc_stats ?? { attacker: {}, defender: {} };
+  const procStats = (detail as any).proc_stats ?? { attacker: {}, defender: {} };
 
   const flattenPassives = (p: any): string[] =>
     p ? ([] as string[]).concat(...(Object.values(p) as string[][])) : [];
-  const passiveAtk = flattenPassives(detail.passive_effects?.attacker);
-  const passiveDef = flattenPassives(detail.passive_effects?.defender);
+  const passiveAtk = flattenPassives((detail as any).passive_effects?.attacker);
+  const passiveDef = flattenPassives((detail as any).passive_effects?.defender);
 
   const flattenBonus = React.useCallback((b: any) => {
     const out: Record<string, number> = {};
@@ -63,8 +54,8 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
     });
     return out;
   }, []);
-  const bonusAtk = flattenBonus(detail.bonuses?.attacker);
-  const bonusDef = flattenBonus(detail.bonuses?.defender);
+  const bonusAtk = flattenBonus((detail as any).bonuses?.attacker);
+  const bonusDef = flattenBonus((detail as any).bonuses?.defender);
 
   const attacker: SideDetails | undefined = (detail as any).attacker;
   const defender: SideDetails | undefined = (detail as any).defender;
@@ -97,12 +88,10 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
     Object.entries(clsMap as Record<string, number>).forEach(([cls, count]) => {
       if (troopSkillSet.has(skill)) {
         if (cls === "All") {
-          // If it's a troop skill under "All", distribute it to all classes
           (troopProcsAtk as any).infantry.push([skill, count]);
           (troopProcsAtk as any).lancer.push([skill, count]);
           (troopProcsAtk as any).marksman.push([skill, count]);
         } else if (cls !== "All") {
-          // If it's a troop skill under a specific class
           (troopProcsAtk as any)[cls.toLowerCase()].push([skill, count]);
         }
       } else {
@@ -114,12 +103,10 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
     Object.entries(clsMap as Record<string, number>).forEach(([cls, count]) => {
       if (troopSkillSet.has(skill)) {
         if (cls === "All") {
-          // If it's a troop skill under "All", distribute it to all classes
           (troopProcsDef as any).infantry.push([skill, count]);
           (troopProcsDef as any).lancer.push([skill, count]);
           (troopProcsDef as any).marksman.push([skill, count]);
         } else if (cls !== "All") {
-          // If it's a troop skill under a specific class
           (troopProcsDef as any)[cls.toLowerCase()].push([skill, count]);
         }
       } else {
@@ -180,312 +167,63 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
     defender: false,
     bonuses: false,
   });
-  const [viewMode, setViewMode] = React.useState<'compact' | 'detailed'>('detailed');
   const sortAndLimit = (arr: [string, number][], topN = 10) => arr.slice().sort((a, b) => b[1] - a[1]).slice(0, topN);
+  const heroLimit = 12; // show top hero procs
+  const troopLimit = 8; // show top troop skills per class
 
   // Format battle results in a readable way
-  const formatBattleResults = (result: SimResult) => {
+  const formatBattleResults = (res: SimResult) => {
     const lines: string[] = [];
-    
+    const detailAny: any = res as any;
+    const atk: any = detailAny.attacker || {};
+    const def: any = detailAny.defender || {};
+    const p = res.power as any;
+
+    const pctStr = (v: any) => `${Number(v || 0).toFixed(1)}%`;
+
     lines.push("BATTLE SIMULATION RESULTS");
     lines.push("=".repeat(50));
     lines.push("");
-    
-    // Battle outcome
-    if (result.attacker_win_rate !== undefined) {
+
+    if ((result as any).attacker_win_rate !== undefined) {
       lines.push("BATTLE OUTCOME:");
-      lines.push(`  Attacker Win Rate: ${((result.attacker_win_rate * 100).toFixed(1))}%`);
-      lines.push(`  Defender Win Rate: ${((result.defender_win_rate || 0) * 100).toFixed(1)}%`);
-      lines.push(`  Average Attacker Survivors: ${Math.round(result.avg_attacker_survivors || 0)}`);
-      lines.push(`  Average Defender Survivors: ${Math.round(result.avg_defender_survivors || 0)}`);
+      lines.push(`  Attacker Win Rate: ${(((result as any).attacker_win_rate || 0) * 100).toFixed(1)}%`);
+      lines.push(`  Defender Win Rate: ${(((result as any).defender_win_rate || 0) * 100).toFixed(1)}%`);
+      lines.push(`  Average Attacker Survivors: ${Math.round((result as any).avg_attacker_survivors || 0)}`);
+      lines.push(`  Average Defender Survivors: ${Math.round((result as any).avg_defender_survivors || 0)}`);
       lines.push("");
     }
-    
-    // Check if this is a sample battle or has sample battle data
-    let battleData = result;
-    if (result.sample_battle) {
-      battleData = result.sample_battle;
-      lines.push("SAMPLE BATTLE DETAILS:");
-      lines.push(`  Winner: ${battleData.winner.toUpperCase()}`);
-      lines.push(`  Rounds: ${battleData.rounds}`);
-      lines.push("");
-    }
-    
-    // Power summary
-    if (battleData.power) {
+
+    const base = (res as any).sample_battle || res;
+    lines.push("SAMPLE BATTLE DETAILS:");
+    lines.push(`  Winner: ${String((base as any).winner || '').toUpperCase()}`);
+    if (typeof (base as any).rounds === 'number') lines.push(`  Rounds: ${(base as any).rounds}`);
+    lines.push("");
+
+    if (p) {
       lines.push("POWER SUMMARY:");
-      lines.push(`  Attacker: ${battleData.power.attacker.start.toLocaleString()} → ${battleData.power.attacker.end.toLocaleString()}`);
-      lines.push(`  Defender: ${battleData.power.defender.start.toLocaleString()} → ${battleData.power.defender.end.toLocaleString()}`);
+      lines.push(`  Attacker: ${p.attacker.start} → ${p.attacker.end}`);
+      lines.push(`  Defender: ${p.defender.start} → ${p.defender.end}`);
       lines.push("");
     }
-    
-    // Troop casualties
-    if (battleData.attacker && battleData.defender) {
-      const attacker = battleData.attacker;
-      const defender = battleData.defender;
-      
-      lines.push("TROOP CASUALTIES:");
-      lines.push("  Attacker:");
-      ["Infantry", "Lancer", "Marksman"].forEach(cls => {
-        const kills = defender.kills?.[cls as keyof typeof defender.kills] || 0;
-        const survivors = attacker.survivors?.[cls as keyof typeof attacker.survivors] || 0;
-        const start = attacker.heroes?.[cls as keyof typeof attacker.heroes]?.count_start || 0;
-        const losses = start - survivors;
-        const lossPct = start > 0 ? (losses / start * 100).toFixed(1) : "0.0";
-        lines.push(`    ${cls}: ${start} → ${survivors} (${losses} lost, ${lossPct}%)`);
-      });
-      lines.push("");
-      lines.push("  Defender:");
-      ["Infantry", "Lancer", "Marksman"].forEach(cls => {
-        const kills = attacker.kills?.[cls as keyof typeof attacker.kills] || 0;
-        const survivors = defender.survivors?.[cls as keyof typeof defender.survivors] || 0;
-        const start = defender.heroes?.[cls as keyof typeof defender.heroes]?.count_start || 0;
-        const losses = start - survivors;
-        const lossPct = start > 0 ? (losses / start * 100).toFixed(1) : "0.0";
-        lines.push(`    ${cls}: ${start} → ${survivors} (${losses} lost, ${lossPct}%)`);
-      });
+
+    if (atk.summary || def.summary) {
+      lines.push("SIDE SUMMARIES:");
+      if (atk.summary) lines.push(`  Attacker — start ${atk.summary.start}, end ${atk.summary.end}, losses ${atk.summary.losses} (${pctStr((atk.summary.loss_pct || 0) * 100)}), kills ${atk.summary.kills} (${pctStr((atk.summary.kill_pct || 0) * 100)})`);
+      if (def.summary) lines.push(`  Defender — start ${def.summary.start}, end ${def.summary.end}, losses ${def.summary.losses} (${pctStr((def.summary.loss_pct || 0) * 100)}), kills ${def.summary.kills} (${pctStr((def.summary.kill_pct || 0) * 100)})`);
       lines.push("");
     }
-    
-    // Key skill activations
-    if (battleData.proc_stats) {
-      const procStats = battleData.proc_stats;
-      lines.push("KEY SKILL ACTIVATIONS:");
-      const allSkills = new Set<string>();
-      Object.values(procStats.attacker || {}).forEach(clsMap => {
-        Object.keys(clsMap).forEach(skill => allSkills.add(skill));
-      });
-      Object.values(procStats.defender || {}).forEach(clsMap => {
-        Object.keys(clsMap).forEach(skill => allSkills.add(skill));
-      });
-      
-      Array.from(allSkills).sort().forEach(skill => {
-        const atkCount = Object.values(procStats.attacker || {}).reduce((sum, clsMap) => 
-          sum + (clsMap[skill] || 0), 0);
-        const defCount = Object.values(procStats.defender || {}).reduce((sum, clsMap) => 
-          sum + (clsMap[skill] || 0), 0);
-        if (atkCount > 0 || defCount > 0) {
-          lines.push(`  ${skill}: Attacker ${atkCount}×, Defender ${defCount}×`);
-        }
-      });
-      lines.push("");
-    }
-    
-    // Add detailed sections for both sides
-    if (battleData.attacker && battleData.defender) {
-      const attacker = battleData.attacker;
-      const defender = battleData.defender;
-      
-      // Attacker section
-      lines.push("ATTACKER");
-      lines.push("=".repeat(20));
-      
-      // Attacker Overview
-      lines.push("Attacker Overview");
-      lines.push(`  Winner: ${battleData.winner.toUpperCase()}`);
-      lines.push(`  Rounds: ${battleData.rounds}`);
-      lines.push(`  Totals: Start ${attacker.summary.start}, End ${attacker.summary.end}, Losses ${attacker.summary.losses}, Loss % ${(attacker.summary.loss_pct * 100).toFixed(1)}%, Kills ${attacker.summary.kills}, Kill % ${(attacker.summary.kill_pct * 100).toFixed(1)}%`);
-      lines.push("");
-      
-      // Attacker Expedition-Skill Impacts
-      if (battleData.passive_effects?.attacker) {
-        lines.push("Expedition-Skill Impacts");
-        const passives = flattenPassives(battleData.passive_effects.attacker);
-        passives.forEach(passive => {
-          lines.push(`  ${passive}`);
-        });
-        lines.push("");
-      }
-      
-      // Attacker Troop Skills
-      ["Infantry", "Lancer", "Marksman"].forEach(cls => {
-        const troopSkillSet = new Set([
-          "Master Brawler", "Bands of Steel", "Crystal Shield", "Body of Light",
-          "Charge", "Ambusher", "Crystal Lance", "Incandescent Field",
-          "Ranged Strike", "Volley", "Crystal Gunpowder", "Flame Charge"
-        ]);
-        
-        // Process proc_stats the same way as the UI logic
-        const combinedSkills: Record<string, number> = {};
-        
-        // Iterate over all skills in proc_stats.attacker
-        Object.entries(battleData.proc_stats?.attacker || {}).forEach(([skill, clsMap]) => {
-          if (troopSkillSet.has(skill)) {
-            const clsMapTyped = clsMap as Record<string, number>;
-            
-            // Check if this skill applies to this class
-            if (clsMapTyped[cls] || clsMapTyped["All"]) {
-              const count = (clsMapTyped[cls] || 0) + (clsMapTyped["All"] || 0);
-              if (count > 0) {
-                combinedSkills[skill] = count;
-              }
-            }
-          }
-        });
-        
-        const skillEntries = Object.entries(combinedSkills).filter(([_, count]) => count > 0);
-        if (skillEntries.length > 0) {
-          lines.push(`${cls} Troop Skills`);
-          skillEntries.forEach(([skill, count], index) => {
-            lines.push(`  ${index + 1}. ${skill}: ${count}`);
-          });
-        } else {
-          lines.push(`${cls} Troop Skills`);
-          lines.push("  — none —");
-        }
-        lines.push("");
-      });
-      
-      // Attacker Kills & Survivors
-      lines.push("Kills & Survivors");
-      ["Infantry", "Lancer", "Marksman"].forEach(cls => {
-        const kills = defender.kills?.[cls as keyof typeof defender.kills] || 0;
-        const survivors = attacker.survivors?.[cls as keyof typeof attacker.survivors] || 0;
-        lines.push(`  ${cls}: Kills ${kills}, Survivors ${survivors}`);
-      });
-      lines.push("");
-      
-      // Attacker Details
-      if (attacker.heroes) {
-        lines.push("Attacker Details");
-        Object.entries(attacker.heroes).forEach(([cls, hero]: [string, any]) => {
-          lines.push(`  ${hero.name}: Gen ${hero.generation}, Class ${cls}, EW Lv ${hero.exclusive_weapon?.level ?? "-"}, Start ${hero.count_start}, End ${hero.count_end}`);
-        });
-        lines.push("");
-      }
-      
-      // Attacker Hero Performance
-      if (attacker.heroes) {
-        lines.push("Hero Performance");
-        lines.push("  Hero | Lost | Loss % | Kills | Kill %");
-        Object.entries(attacker.heroes).forEach(([cls, hero]: [string, any]) => {
-          const lost = hero.count_lost || 0;
-          const lossPct = hero.loss_pct ? (hero.loss_pct * 100).toFixed(1) : "0.0";
-          const kills = hero.kills || 0;
-          const killPct = hero.kill_pct ? (hero.kill_pct * 100).toFixed(1) : "0.0";
-          lines.push(`  ${hero.name} | ${lost} | ${lossPct}% | ${kills} | ${killPct}%`);
-        });
-        lines.push("");
-      }
-      
-      // Attacker Cumulative % Bonuses
-      if (battleData.bonuses?.attacker) {
-        lines.push("Cumulative % Bonuses");
-        const bonus = flattenBonus(battleData.bonuses.attacker);
-        Object.entries(bonus).forEach(([stat, val]) => {
-          lines.push(`  ${stat}: ${(val * 100).toFixed(1)}%`);
-        });
-        lines.push("");
-      }
-      
-      // Defender section
-      lines.push("DEFENDER");
-      lines.push("=".repeat(20));
-      
-      // Defender Overview
-      lines.push("Defender Overview");
-      lines.push(`  Winner: ${battleData.winner.toUpperCase()}`);
-      lines.push(`  Rounds: ${battleData.rounds}`);
-      lines.push(`  Totals: Start ${defender.summary.start}, End ${defender.summary.end}, Losses ${defender.summary.losses}, Loss % ${(defender.summary.loss_pct * 100).toFixed(1)}%, Kills ${defender.summary.kills}, Kill % ${(defender.summary.kill_pct * 100).toFixed(1)}%`);
-      lines.push("");
-      
-      // Defender Expedition-Skill Impacts
-      if (battleData.passive_effects?.defender) {
-        lines.push("Expedition-Skill Impacts");
-        const passives = flattenPassives(battleData.passive_effects.defender);
-        passives.forEach(passive => {
-          lines.push(`  ${passive}`);
-        });
-        lines.push("");
-      }
-      
-      // Defender Troop Skills
-      ["Infantry", "Lancer", "Marksman"].forEach(cls => {
-        const troopSkillSet = new Set([
-          "Master Brawler", "Bands of Steel", "Crystal Shield", "Body of Light",
-          "Charge", "Ambusher", "Crystal Lance", "Incandescent Field",
-          "Ranged Strike", "Volley", "Crystal Gunpowder", "Flame Charge"
-        ]);
-        
-        // Process proc_stats the same way as the UI logic
-        const combinedSkills: Record<string, number> = {};
-        
-        // Iterate over all skills in proc_stats.defender
-        Object.entries(battleData.proc_stats?.defender || {}).forEach(([skill, clsMap]) => {
-          if (troopSkillSet.has(skill)) {
-            const clsMapTyped = clsMap as Record<string, number>;
-            
-            // Check if this skill applies to this class
-            if (clsMapTyped[cls] || clsMapTyped["All"]) {
-              const count = (clsMapTyped[cls] || 0) + (clsMapTyped["All"] || 0);
-              if (count > 0) {
-                combinedSkills[skill] = count;
-              }
-            }
-          }
-        });
-        
-        const skillEntries = Object.entries(combinedSkills).filter(([_, count]) => count > 0);
-        if (skillEntries.length > 0) {
-          lines.push(`${cls} Troop Skills`);
-          skillEntries.forEach(([skill, count], index) => {
-            lines.push(`  ${index + 1}. ${skill}: ${count}`);
-          });
-        } else {
-          lines.push(`${cls} Troop Skills`);
-          lines.push("  — none —");
-        }
-        lines.push("");
-      });
-      
-      // Defender Kills & Survivors
-      lines.push("Kills & Survivors");
-      ["Infantry", "Lancer", "Marksman"].forEach(cls => {
-        const kills = attacker.kills?.[cls as keyof typeof attacker.kills] || 0;
-        const survivors = defender.survivors?.[cls as keyof typeof defender.survivors] || 0;
-        lines.push(`  ${cls}: Kills ${kills}, Survivors ${survivors}`);
-      });
-      lines.push("");
-      
-      // Defender Details
-      if (defender.heroes) {
-        lines.push("Defender Details");
-        Object.entries(defender.heroes).forEach(([cls, hero]: [string, any]) => {
-          lines.push(`  ${hero.name}: Gen ${hero.generation}, Class ${cls}, EW Lv ${hero.exclusive_weapon?.level ?? "-"}, Start ${hero.count_start}, End ${hero.count_end}`);
-        });
-        lines.push("");
-      }
-      
-      // Defender Hero Performance
-      if (defender.heroes) {
-        lines.push("Hero Performance");
-        lines.push("  Hero | Lost | Loss % | Kills | Kill %");
-        Object.entries(defender.heroes).forEach(([cls, hero]: [string, any]) => {
-          const lost = hero.count_lost || 0;
-          const lossPct = hero.loss_pct ? (hero.loss_pct * 100).toFixed(1) : "0.0";
-          const kills = hero.kills || 0;
-          const killPct = hero.kill_pct ? (hero.kill_pct * 100).toFixed(1) : "0.0";
-          lines.push(`  ${hero.name} | ${lost} | ${lossPct}% | ${kills} | ${killPct}%`);
-        });
-        lines.push("");
-      }
-      
-      // Defender Cumulative % Bonuses
-      if (battleData.bonuses?.defender) {
-        lines.push("Cumulative % Bonuses");
-        const bonus = flattenBonus(battleData.bonuses.defender);
-        Object.entries(bonus).forEach(([stat, val]) => {
-          lines.push(`  ${stat}: ${(val * 100).toFixed(1)}%`);
-        });
-        lines.push("");
-      }
-    }
-    
+
+    lines.push("ATTACKER Expedition-Skill Impacts");
+    buildLines(passiveAtk, heroProcsAtk, pctAtk).forEach((s) => lines.push(`  - ${s}`));
+    lines.push("DEFENDER Expedition-Skill Impacts");
+    buildLines(passiveDef, heroProcsDef, pctDef).forEach((s) => lines.push(`  - ${s}`));
+
     return lines.join("\n");
   };
 
   return (
-    <ScrollView style={[styles.results, { maxHeight: 900 }]} nestedScrollEnabled={Platform.OS !== "web"}>
+    <View style={{ width: "100%" }}>
       <View style={{ flexDirection: "row", marginBottom: 8 }}>
         <TouchableOpacity
           onPress={onRerun}
@@ -520,120 +258,105 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
           </TouchableOpacity>
         </View>
       </View>
-      <View style={styles.segmented}>
-        <TouchableOpacity
-          style={[styles.segmentedBtn, viewMode === 'detailed' ? styles.segmentedBtnActive : null]}
-          onPress={() => setViewMode('detailed')}
-        >
-          <Text style={[styles.segmentedText, viewMode === 'detailed' ? styles.segmentedTextActive : null]}>Detailed</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.segmentedBtn, viewMode === 'compact' ? styles.segmentedBtnActive : null]}
-          onPress={() => setViewMode('compact')}
-        >
-          <Text style={[styles.segmentedText, viewMode === 'compact' ? styles.segmentedTextActive : null]}>Compact</Text>
-        </TouchableOpacity>
-      </View>
+      {/* segmented control removed for now to minimize styles dependency */}
 
-      {result.attacker_win_rate !== undefined && (
+      {(result as any).attacker_win_rate !== undefined && (
         <View style={{ marginBottom: 16 }}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.resultHeader}>Simulation Summary</Text>
+            <Text style={styles.subHeader}>Simulation Summary</Text>
             <TouchableOpacity style={styles.sectionToggleBtn} onPress={() => setCollapsed((c) => ({ ...c, summary: !c.summary }))}>
               <Text style={styles.sectionToggleText}>{collapsed.summary ? "Expand" : "Collapse"}</Text>
             </TouchableOpacity>
           </View>
           {!collapsed.summary && (
           <View style={styles.tableContainer}>
-            <View style={styles.tableHeaderRow}>
+            {/* Wide layout */}
+            <View style={[styles.tableHeaderRow, { display: Platform.OS === 'web' ? 'flex' : 'none' }]}>
               <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Metric</Text>
               <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Value</Text>
             </View>
-            <View style={styles.tableRow}>
+            <View style={[styles.tableRow, { display: Platform.OS === 'web' ? 'flex' : 'none' }]}>
               <Text style={[styles.tableCell, { flex: 2 }]}>Attacker Win Rate</Text>
               <Text style={[styles.tableCell, { flex: 1 }]}>
-                {((result.attacker_win_rate ?? 0) * 100).toFixed(1)}%
+                {(((result as any).attacker_win_rate ?? 0) * 100).toFixed(1)}%
               </Text>
             </View>
-            <View style={styles.tableRow}>
+            <View style={[styles.tableRow, { display: Platform.OS === 'web' ? 'flex' : 'none' }]}>
               <Text style={[styles.tableCell, { flex: 2 }]}>Defender Win Rate</Text>
               <Text style={[styles.tableCell, { flex: 1 }]}>
-                {((result.defender_win_rate ?? 0) * 100).toFixed(1)}%
+                {(((result as any).defender_win_rate ?? 0) * 100).toFixed(1)}%
               </Text>
             </View>
-            <View style={styles.tableRow}>
+            <View style={[styles.tableRow, { display: Platform.OS === 'web' ? 'flex' : 'none' }]}>
               <Text style={[styles.tableCell, { flex: 2 }]}>Avg Attacker Survivors</Text>
               <Text style={[styles.tableCell, { flex: 1 }]}>
-                {Math.round(result.avg_attacker_survivors ?? 0)}
+                {Math.round((result as any).avg_attacker_survivors ?? 0)}
               </Text>
             </View>
-            <View style={styles.tableRow}>
+            <View style={[styles.tableRow, { display: Platform.OS === 'web' ? 'flex' : 'none' }]}>
               <Text style={[styles.tableCell, { flex: 2 }]}>Avg Defender Survivors</Text>
               <Text style={[styles.tableCell, { flex: 1 }]}>
-                {Math.round(result.avg_defender_survivors ?? 0)}
+                {Math.round((result as any).avg_defender_survivors ?? 0)}
               </Text>
+            </View>
+            {/* Stacked layout for small screens */}
+            <View style={[styles.stackRow, { display: Platform.OS === 'web' ? 'none' : 'flex' }]}>
+              <Text style={styles.stackLabel}>Attacker Win Rate</Text>
+              <Text style={styles.stackValue}>{(((result as any).attacker_win_rate ?? 0) * 100).toFixed(1)}%</Text>
+            </View>
+            <View style={[styles.stackRow, { display: Platform.OS === 'web' ? 'none' : 'flex' }]}>
+              <Text style={styles.stackLabel}>Defender Win Rate</Text>
+              <Text style={styles.stackValue}>{(((result as any).defender_win_rate ?? 0) * 100).toFixed(1)}%</Text>
+            </View>
+            <View style={[styles.stackRow, { display: Platform.OS === 'web' ? 'none' : 'flex' }]}>
+              <Text style={styles.stackLabel}>Avg Attacker Survivors</Text>
+              <Text style={styles.stackValue}>{Math.round((result as any).avg_attacker_survivors ?? 0)}</Text>
+            </View>
+            <View style={[styles.stackRow, { display: Platform.OS === 'web' ? 'none' : 'flex' }]}>
+              <Text style={styles.stackLabel}>Avg Defender Survivors</Text>
+              <Text style={styles.stackValue}>{Math.round((result as any).avg_defender_survivors ?? 0)}</Text>
             </View>
           </View>
           )}
         </View>
       )}
 
-      {detail.power && (
+      {(detail as any).power && (
         <View style={{ marginBottom: 16 }}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.resultHeader}>Power & Damage</Text>
+            <Text style={styles.subHeader}>Power & Damage</Text>
             <TouchableOpacity style={styles.sectionToggleBtn} onPress={() => setCollapsed((c) => ({ ...c, power: !c.power }))}>
               <Text style={styles.sectionToggleText}>{collapsed.power ? "Expand" : "Collapse"}</Text>
             </TouchableOpacity>
           </View>
           {!collapsed.power && (
           <View style={styles.tableContainer}>
-            <View style={styles.tableHeaderRow}>
+            {/* Wide layout */}
+            <View style={[styles.tableHeaderRow, { display: Platform.OS === 'web' ? 'flex' : 'none' }]}>
               <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Metric</Text>
               <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Attacker</Text>
               <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Defender</Text>
             </View>
-            <View style={styles.tableRow}>
-              <Text style={[styles.tableCell, { flex: 2 }]}>Start Power</Text>
-              <Text style={[styles.tableCell, { flex: 1 }]}>
-                {detail.power.attacker.start}
-              </Text>
-              <Text style={[styles.tableCell, { flex: 1 }]}>
-                {detail.power.defender.start}
-              </Text>
-            </View>
-            <View style={styles.tableRow}>
-              <Text style={[styles.tableCell, { flex: 2 }]}>End Power</Text>
-              <Text style={[styles.tableCell, { flex: 1 }]}>
-                {detail.power.attacker.end}
-              </Text>
-              <Text style={[styles.tableCell, { flex: 1 }]}>
-                {detail.power.defender.end}
-              </Text>
-            </View>
-            <View style={styles.tableRow}>
-              <Text style={[styles.tableCell, { flex: 2 }]}>Damage Dealt</Text>
-              <Text style={[styles.tableCell, { flex: 1 }]}>
-                {detail.power.attacker.dealt}
-              </Text>
-              <Text style={[styles.tableCell, { flex: 1 }]}>
-                {detail.power.defender.dealt}
-              </Text>
-            </View>
-            <View style={styles.tableRow}>
-              <Text style={[styles.tableCell, { flex: 2 }]}>Power Diff Start</Text>
-              <Text style={[styles.tableCell, { flex: 1 }]}>
-                {detail.power.difference.start}
-              </Text>
-              <Text style={[styles.tableCell, { flex: 1 }]}></Text>
-            </View>
-            <View style={styles.tableRow}>
-              <Text style={[styles.tableCell, { flex: 2 }]}>Power Diff End</Text>
-              <Text style={[styles.tableCell, { flex: 1 }]}>
-                {detail.power.difference.end}
-              </Text>
-              <Text style={[styles.tableCell, { flex: 1 }]}></Text>
-            </View>
+            {[
+              { label: 'Start Power', a: (detail as any).power.attacker.start, d: (detail as any).power.defender.start },
+              { label: 'End Power', a: (detail as any).power.attacker.end, d: (detail as any).power.defender.end },
+              { label: 'Damage Dealt', a: (detail as any).power.attacker.dealt, d: (detail as any).power.defender.dealt },
+              { label: 'Power Diff Start', a: (detail as any).power.difference.start, d: '' },
+              { label: 'Power Diff End', a: (detail as any).power.difference.end, d: '' },
+            ].map((row, idx) => (
+              <View key={idx}>
+                <View style={[styles.tableRow, { display: Platform.OS === 'web' ? 'flex' : 'none' }]}>
+                  <Text style={[styles.tableCell, { flex: 2 }]}>{row.label}</Text>
+                  <Text style={[styles.tableCell, { flex: 1 }]}>{row.a}</Text>
+                  <Text style={[styles.tableCell, { flex: 1 }]}>{row.d}</Text>
+                </View>
+                <View style={[styles.stackRow, { display: Platform.OS === 'web' ? 'none' : 'flex' }]}>
+                  <Text style={styles.stackLabel}>{row.label}</Text>
+                  <Text style={styles.stackValue}>Attacker: {row.a}</Text>
+                  {String(row.d).length > 0 && <Text style={styles.stackValue}>Defender: {row.d}</Text>}
+                </View>
+              </View>
+            ))}
           </View>
           )}
         </View>
@@ -642,7 +365,7 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
       <View style={[{ flexDirection: "row", width: "100%" }, Platform.OS === 'web' ? {} : {}]}>
         <View style={{ flex: 1, paddingHorizontal: 6, minWidth: 0 }}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.resultHeader, styles.attackerText]}>Attacker</Text>
+            <Text style={[styles.subHeader, styles.attackerLabel]}>Attacker</Text>
             <TouchableOpacity style={styles.sectionToggleBtn} onPress={() => setCollapsed((c) => ({ ...c, attacker: !c.attacker }))}>
               <Text style={styles.sectionToggleText}>{collapsed.attacker ? "Expand" : "Collapse"}</Text>
             </TouchableOpacity>
@@ -650,15 +373,15 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
           {!collapsed.attacker && (
             <SideBlock
               label="Attacker"
-              colourStyle={styles.attackerText}
+              colourStyle={styles.attackerLabel}
               detail={detail}
               winSide="attacker"
-              passives={buildLines(passiveAtk, sortAndLimit(heroProcsAtk, viewMode === 'compact' ? 6 : 12), pctAtk)}
+              passives={buildLines(passiveAtk, sortAndLimit(heroProcsAtk, heroLimit), pctAtk)}
               bonus={bonusAtk}
               troopProcs={{
-                infantry: sortAndLimit(troopProcsAtk.infantry, viewMode === 'compact' ? 4 : 8),
-                lancer: sortAndLimit(troopProcsAtk.lancer, viewMode === 'compact' ? 4 : 8),
-                marksman: sortAndLimit(troopProcsAtk.marksman, viewMode === 'compact' ? 4 : 8),
+                infantry: sortAndLimit(troopProcsAtk.infantry, troopLimit),
+                lancer: sortAndLimit(troopProcsAtk.lancer, troopLimit),
+                marksman: sortAndLimit(troopProcsAtk.marksman, troopLimit),
               }}
               sideDetails={attacker}
             />
@@ -666,7 +389,7 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
         </View>
         <View style={{ flex: 1, paddingHorizontal: 6, minWidth: 0 }}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.resultHeader, styles.defenderText]}>Defender</Text>
+            <Text style={[styles.subHeader, styles.defenderLabel]}>Defender</Text>
             <TouchableOpacity style={styles.sectionToggleBtn} onPress={() => setCollapsed((c) => ({ ...c, defender: !c.defender }))}>
               <Text style={styles.sectionToggleText}>{collapsed.defender ? "Expand" : "Collapse"}</Text>
             </TouchableOpacity>
@@ -674,15 +397,15 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
           {!collapsed.defender && (
             <SideBlock
               label="Defender"
-              colourStyle={styles.defenderText}
+              colourStyle={styles.defenderLabel}
               detail={detail}
               winSide="defender"
-              passives={buildLines(passiveDef, sortAndLimit(heroProcsDef, viewMode === 'compact' ? 6 : 12), pctDef)}
+              passives={buildLines(passiveDef, sortAndLimit(heroProcsDef, heroLimit), pctDef)}
               bonus={bonusDef}
               troopProcs={{
-                infantry: sortAndLimit(troopProcsDef.infantry, viewMode === 'compact' ? 4 : 8),
-                lancer: sortAndLimit(troopProcsDef.lancer, viewMode === 'compact' ? 4 : 8),
-                marksman: sortAndLimit(troopProcsDef.marksman, viewMode === 'compact' ? 4 : 8),
+                infantry: sortAndLimit(troopProcsDef.infantry, troopLimit),
+                lancer: sortAndLimit(troopProcsDef.lancer, troopLimit),
+                marksman: sortAndLimit(troopProcsDef.marksman, troopLimit),
               }}
               sideDetails={defender}
             />
@@ -713,7 +436,7 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
           </View>
         )}
       </View>
-    </ScrollView>
+    </View>
   );
 };
 
@@ -769,13 +492,13 @@ const SideBlock: React.FC<SBProps> = ({
           <Text
             style={[
               styles.tableCell,
-              detail.winner === winSide ? colourStyle : undefined,
+              (detail as any).winner === winSide ? colourStyle : undefined,
               { flex: 1 },
             ]}
           >
-            {detail.winner.toUpperCase()}
+            {(detail as any).winner?.toString().toUpperCase()}
           </Text>
-          <Text style={[styles.tableCell, { flex: 1 }]}>{detail.rounds}</Text>
+          <Text style={[styles.tableCell, { flex: 1 }]}>{(detail as any).rounds}</Text>
         </View>
       </View>
 
@@ -783,7 +506,8 @@ const SideBlock: React.FC<SBProps> = ({
         <>
           <Text style={styles.subHeader}>Totals</Text>
           <View style={styles.tableContainer}>
-            <View style={styles.tableHeaderRow}>
+            {/* Wide layout */}
+            <View style={[styles.tableHeaderRow, { display: Platform.OS === 'web' ? 'flex' : 'none' }]}>
               <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Start</Text>
               <Text style={[styles.tableHeaderCell, { flex: 1 }]}>End</Text>
               <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Losses</Text>
@@ -791,7 +515,7 @@ const SideBlock: React.FC<SBProps> = ({
               <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Kills</Text>
               <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Kill %</Text>
             </View>
-            <View style={styles.tableRow}>
+            <View style={[styles.tableRow, { display: Platform.OS === 'web' ? 'flex' : 'none' }]}>
               <Text style={[styles.tableCell, { flex: 1 }]}>{sideDetails.summary.start}</Text>
               <Text style={[styles.tableCell, { flex: 1 }]}>{sideDetails.summary.end}</Text>
               <Text style={[styles.tableCell, { flex: 1 }]}>{sideDetails.summary.losses}</Text>
@@ -803,6 +527,20 @@ const SideBlock: React.FC<SBProps> = ({
                 {(sideDetails.summary.kill_pct * 100).toFixed(1)}%
               </Text>
             </View>
+            {/* Stacked for small screens */}
+            {[
+              { label: 'Start', v: sideDetails.summary.start },
+              { label: 'End', v: sideDetails.summary.end },
+              { label: 'Losses', v: sideDetails.summary.losses },
+              { label: 'Loss %', v: `${(sideDetails.summary.loss_pct * 100).toFixed(1)}%` },
+              { label: 'Kills', v: sideDetails.summary.kills },
+              { label: 'Kill %', v: `${(sideDetails.summary.kill_pct * 100).toFixed(1)}%` },
+            ].map((row, idx) => (
+              <View key={idx} style={[styles.stackRow, { display: Platform.OS === 'web' ? 'none' : 'flex' }]}>
+                <Text style={styles.stackLabel}>{row.label}</Text>
+                <Text style={styles.stackValue}>{row.v as any}</Text>
+              </View>
+            ))}
           </View>
         </>
       )}
@@ -815,40 +553,32 @@ const SideBlock: React.FC<SBProps> = ({
         </TouchableOpacity>
       </View>
       <View style={styles.tableContainer}>
-        <View style={styles.tableHeaderRow}>
+        {/* Wide layout */}
+        <View style={[styles.tableHeaderRow, { display: Platform.OS === 'web' ? 'flex' : 'none' }]}>
           <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Name</Text>
           <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Percent</Text>
         </View>
         {(() => {
-          // Parse passives to extract name and percent/stat
           let rows = passives.map((ln) => {
-            // Match: SkillName: stat +xx.x% (optional: (enemy))
             let m = ln.match(/^(.*?): ([^+]+\+[-\d.]+%)(?:\s*\(enemy\))?/);
-            if (m) {
-              return { name: m[1], percent: m[2].trim() };
-            }
-            // Match: SkillName: +xx.x% (triggered n×)
+            if (m) return { name: m[1], percent: m[2].trim() };
             m = ln.match(/^(.*?): \+([-\d.]+)% \(triggered \d+×\)/);
-            if (m) {
-              return { name: m[1], percent: `+${m[2]}%` };
-            }
-            // Match: SkillName: triggered n×
+            if (m) return { name: m[1], percent: `+${m[2]}%` };
             m = ln.match(/^(.*?): triggered \d+×/);
-            if (m) {
-              return { name: m[1], percent: "" };
-            }
-            // fallback: whole string as name
+            if (m) return { name: m[1], percent: "" };
             return { name: ln, percent: "" };
           });
-          if (!showAllImpacts) {
-            // limit to top 9 visible
-            rows = rows.slice(0, 9);
-            while (rows.length < 9) rows.push({ name: "", percent: "" });
-          }
+          if (!showAllImpacts) rows = rows.slice(0, 9);
           return rows.map((row, i) => (
-            <View key={i} style={styles.tableRow}>
-              <Text style={[styles.tableCell, { flex: 2, textAlign: "left" }]}>{row.name}</Text>
-              <Text style={[styles.tableCell, { flex: 2 }]}>{row.percent}</Text>
+            <View key={i}>
+              <View style={[styles.tableRow, { display: Platform.OS === 'web' ? 'flex' : 'none' }]}>
+                <Text style={[styles.tableCell, { flex: 2, textAlign: "left" }]}>{row.name}</Text>
+                <Text style={[styles.tableCell, { flex: 2 }]}>{row.percent}</Text>
+              </View>
+              <View style={[styles.stackRow, { display: Platform.OS === 'web' ? 'none' : 'flex' }]}>
+                <Text style={styles.stackLabel}>{row.name}</Text>
+                {!!row.percent && <Text style={styles.stackValue}>{row.percent}</Text>}
+              </View>
             </View>
           ));
         })()}
@@ -888,8 +618,8 @@ const SideBlock: React.FC<SBProps> = ({
             ))}
           </View>
 
-          {/* Move Details table here */}
-          <Text style={[styles.resultHeader, colourStyle]}>
+          {/* Details table */}
+      <Text style={[styles.subHeader, colourStyle]}>
             {label} Details
           </Text>
           <View style={styles.tableContainer}>
@@ -909,13 +639,13 @@ const SideBlock: React.FC<SBProps> = ({
                 <Text style={[styles.tableCell, { flex: 1 }]}>
                   {h.exclusive_weapon?.level ?? "-"}
                 </Text>
-                <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.count_start)}</Text>
-                <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.count_end)}</Text>
+                <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.count_start as number)}</Text>
+                <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.count_end as number)}</Text>
               </View>
             ))}
           </View>
 
-          <Text style={styles.resultHeader}>Hero Performance</Text>
+          <Text style={styles.subHeader}>Hero Performance</Text>
           <View style={styles.tableContainer}>
             <View style={styles.tableHeaderRow}>
               <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Hero</Text>
@@ -927,18 +657,18 @@ const SideBlock: React.FC<SBProps> = ({
             {Object.entries(sideDetails.heroes).map(([cls, h]: [string, any]) => (
               <View key={cls} style={styles.tableRow}>
                 <Text style={[styles.tableCell, { flex: 2 }]}>{h.name}</Text>
-                <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.count_lost)}</Text>
+                <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.count_lost as number)}</Text>
                 <View style={[{ flex: 1, flexDirection: 'row', alignItems: 'center' }]}>
-                  <Text style={[styles.tableCell, { flex: undefined, width: 48, textAlign: 'right' }]}>{(h.loss_pct * 100).toFixed(1)}%</Text>
+                  <Text style={[styles.tableCell, { flex: undefined, width: 48, textAlign: 'right' }]}>{((h.loss_pct || 0) * 100).toFixed(1)}%</Text>
                   <View style={styles.barTrack}>
-                    <View style={[styles.barFill, { width: `${Math.min(100, Math.round(h.loss_pct * 100))}%`, backgroundColor: '#F59E0B' }]} />
+                    <View style={[styles.barFill, { width: `${Math.min(100, Math.round((h.loss_pct || 0) * 100))}%`, backgroundColor: '#F59E0B' }]} />
                   </View>
                 </View>
-                <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.kills)}</Text>
+                <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.kills as number)}</Text>
                 <View style={[{ flex: 1, flexDirection: 'row', alignItems: 'center' }]}>
-                  <Text style={[styles.tableCell, { flex: undefined, width: 48, textAlign: 'right' }]}>{(h.kill_pct * 100).toFixed(1)}%</Text>
+                  <Text style={[styles.tableCell, { flex: undefined, width: 48, textAlign: 'right' }]}>{((h.kill_pct || 0) * 100).toFixed(1)}%</Text>
                   <View style={styles.barTrack}>
-                    <View style={[styles.barFill, { width: `${Math.min(100, Math.round(h.kill_pct * 100))}%`, backgroundColor: '#10B981' }]} />
+                    <View style={[styles.barFill, { width: `${Math.min(100, Math.round((h.kill_pct || 0) * 100))}%`, backgroundColor: '#10B981' }]} />
                   </View>
                 </View>
               </View>
@@ -948,7 +678,7 @@ const SideBlock: React.FC<SBProps> = ({
       )}
 
       {/* cumulative bonuses */}
-      <Text style={styles.resultHeader}>Cumulative % Bonuses</Text>
+      <Text style={styles.subHeader}>Cumulative % Bonuses</Text>
       <View style={styles.tableContainer}>
         <View style={styles.tableHeaderRow}>
           <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Stat</Text>

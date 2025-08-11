@@ -1,5 +1,7 @@
 import React from "react";
-import { Picker } from "@react-native-picker/picker";
+import { Picker, PickerItem } from "../components/WebCompatiblePicker";
+import { Text, View } from "react-native";
+import { styles } from "../styles";
 
 type PickerItem = { label: string; value: string | number; color?: string; enabled?: boolean };
 
@@ -12,11 +14,17 @@ interface SimplePickerProps {
   enabled?: boolean;
 }
 
-export const SimplePicker: React.FC<SimplePickerProps> = ({ items, selectedValue, onChange, style, dropdownIconColor = "#FFFFFF", enabled = true }) => {
+export const SimplePicker: React.FC<SimplePickerProps> = ({ items, selectedValue, onChange, style, enabled = true }) => {
   return (
-    <Picker selectedValue={selectedValue} onValueChange={onChange} style={style} dropdownIconColor={dropdownIconColor} enabled={enabled}>
+    <Picker 
+      selectedValue={selectedValue} 
+      onValueChange={onChange} 
+      style={style} 
+      enabled={enabled}
+      accessibilityLabel="Simple picker selection"
+    >
       {items.map((it, i) => (
-        <Picker.Item key={`${String(it.value)}-${i}`} label={it.label} value={it.value} color={it.color ?? "#FFFFFF"} enabled={it.enabled ?? true} />
+        <PickerItem key={`${String(it.value)}-${i}`} label={it.label} value={it.value} />
       ))}
     </Picker>
   );

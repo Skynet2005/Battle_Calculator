@@ -1,8 +1,8 @@
 import React from "react";
-import { Picker } from "@react-native-picker/picker";
+import { Picker, PickerItem } from "./WebCompatiblePicker";
 import { Text, View } from "react-native";
-import { Hero } from "../types";
 import { styles } from "../styles";
+import type { Hero } from "../types";
 import { SimplePicker } from "../utils/pickers";
 
 interface Props {
@@ -24,22 +24,19 @@ export const JoinerRow: React.FC<Props> = ({ side, idx, heroes, selected, onChan
       const arr: React.ReactElement[] = [];
       if (h.generation !== lastGen) {
         arr.push(
-          <Picker.Item
+          <PickerItem
             key={`hdr-${side}-joiner-${idx}-${h.generation}`}
             label={`-- Gen ${h.generation} --`}
             value=""
-            enabled={false}
-            color="#FFFFFF"
           />
         );
         lastGen = h.generation;
       }
       arr.push(
-        <Picker.Item
+        <PickerItem
           key={`${side}-joiner-${idx}-${h.name}`}
           label={h.name}
           value={h.name}
-          color="#FFFFFF"
         />
       );
       return arr;

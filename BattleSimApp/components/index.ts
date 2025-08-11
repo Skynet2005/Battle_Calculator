@@ -3,9 +3,12 @@ export { ResultsSection } from "./ResultsSection";
 export { SideSetup } from "./SideSetup";
 export { JoinerRow } from "./JoinerRow";
 export { ResearchSection } from "./ResearchSection";
-export { ChiefGearSection } from "./gear/ChiefGearSection";
-export { ChiefCharmsSection } from "./gear/ChiefCharmsSection";
+export { ChiefGearSection } from "./ChiefGearSection";
+export { ChiefCharmsSection } from "./ChiefCharmsSection";
 export { ChiefSkinSection } from "./ChiefSkinSection";
 export { ProfileSection } from "./ProfileSection";
-
-
+export { TopBar } from "./TopBar";
+export { ProfileModal } from "./ProfileModal";
+export { HeroGearSection } from "./HeroGearSection";
+export { DaybreakSection } from "./DaybreakSection";
+export { CollapsibleSection } from "./CollapsibleSection";

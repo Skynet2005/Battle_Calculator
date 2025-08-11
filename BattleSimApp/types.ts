@@ -168,6 +168,12 @@ export interface SavedSettingsData {
   // Chief Skin bonuses per side
   atkChiefSkinBonuses?: ChiefSkinBonuses | null;
   defChiefSkinBonuses?: ChiefSkinBonuses | null;
+  // Legendary/Mythic Hero Gear per class
+  atkHeroGearSelection?: HeroGearSelectionByClass | null;
+  defHeroGearSelection?: HeroGearSelectionByClass | null;
+  // Daybreak Island bonuses per side
+  atkDaybreakBonuses?: DaybreakBonuses | null;
+  defDaybreakBonuses?: DaybreakBonuses | null;
 }
 
 // Research selection snapshot for restoring UI
@@ -270,3 +276,62 @@ export type ChiefSkinBonuses = {
   troops_defense_pct: number;    // 0-150%
   troops_attack_pct: number;     // 0-150%
 };
+
+// Daybreak Island bonuses – class-specific plus troop-wide
+export type DaybreakBonuses = {
+  infantry_attack_pct: number;   
+  infantry_defense_pct: number;  
+  lancer_attack_pct: number;     
+  lancer_defense_pct: number;    
+  marksman_attack_pct: number;   
+  marksman_defense_pct: number;  
+  troops_attack_pct: number;     
+  troops_defense_pct: number;    
+  troops_lethality_pct: number;   
+  troops_health_pct: number;
+};
+
+// Legendary/Mythic Hero Gear UI types
+export type StackMode = "additive" | "multiplicative";
+
+export interface HeroGearPieceSelection {
+  type: string;                // "Infantry" | "Lancer" | "Marksman" | ""
+  level: number;               // 0..200
+  essence_level: number;       // 0..20
+}
+
+// Union type for all possible field values
+export type HeroGearFieldValue = string | number | boolean | StackMode;
+
+// Updated interface for the change handler
+export interface HeroGearChangeHandler {
+  (piece: keyof HeroGearClassSelection, field: keyof HeroGearPieceSelection, value: HeroGearFieldValue): void;
+}
+
+export interface HeroGearClassSelection {
+  goggles: HeroGearPieceSelection;
+  boot: HeroGearPieceSelection;
+  glove: HeroGearPieceSelection;
+  belt: HeroGearPieceSelection;
+}
+
+export type HeroGearSelectionByClass = {
+  Infantry: HeroGearClassSelection;
+  Lancer: HeroGearClassSelection;
+  Marksman: HeroGearClassSelection;
+};
+
+export interface HeroGearTotals {
+  infantry_lethality_pct: number;
+  infantry_health_pct: number;
+  infantry_attack_pct: number;
+  infantry_defense_pct: number;
+  lancer_lethality_pct: number;
+  lancer_health_pct: number;
+  lancer_attack_pct: number;
+  lancer_defense_pct: number;
+  marksman_lethality_pct: number;
+  marksman_health_pct: number;
+  marksman_attack_pct: number;
+  marksman_defense_pct: number;
+}

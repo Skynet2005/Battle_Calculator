@@ -79,6 +79,34 @@ from research import (
     flatten as research_flatten,
 )
 
+# Legendary/Mythic hero gear calculators
+try:
+    from .legendary_mythic_hero_gear.infantry_goggles import calc_goggles_infantry_il as _inf_goggles
+    from .legendary_mythic_hero_gear.infantry_boot import calc_boot_infantry_il as _inf_boot
+    from .legendary_mythic_hero_gear.infantry_glove import calc_glove_infantry_ih as _inf_glove
+    from .legendary_mythic_hero_gear.infantry_belt import calc_belt_infantry_ih as _inf_belt
+    from .legendary_mythic_hero_gear.lancer_goggles import calc_goggles_lancer_ll as _lan_goggles
+    from .legendary_mythic_hero_gear.lancer_boot import calc_boot_lancer_ll as _lan_boot
+    from .legendary_mythic_hero_gear.lancer_glove import calc_glove_lancer_lh as _lan_glove
+    from .legendary_mythic_hero_gear.lancer_belt import calc_belt_lancer_lh as _lan_belt
+    from .legendary_mythic_hero_gear.marksman_goggles import calc_goggles_marksman_ml as _mm_goggles
+    from .legendary_mythic_hero_gear.marksman_boot import calc_boot_marksman_ml as _mm_boot
+    from .legendary_mythic_hero_gear.marksman_glove import calc_glove_marksman_mh as _mm_glove
+    from .legendary_mythic_hero_gear.marksman_belt import calc_belt_marksman_mh as _mm_belt
+except ImportError:  # fallback when launched as script
+    from legendary_mythic_hero_gear.infantry_goggles import calc_goggles_infantry_il as _inf_goggles  # type: ignore
+    from legendary_mythic_hero_gear.infantry_boot import calc_boot_infantry_il as _inf_boot  # type: ignore
+    from legendary_mythic_hero_gear.infantry_glove import calc_glove_infantry_ih as _inf_glove  # type: ignore
+    from legendary_mythic_hero_gear.infantry_belt import calc_belt_infantry_ih as _inf_belt  # type: ignore
+    from legendary_mythic_hero_gear.lancer_goggles import calc_goggles_lancer_ll as _lan_goggles  # type: ignore
+    from legendary_mythic_hero_gear.lancer_boot import calc_boot_lancer_ll as _lan_boot  # type: ignore
+    from legendary_mythic_hero_gear.lancer_glove import calc_glove_lancer_lh as _lan_glove  # type: ignore
+    from legendary_mythic_hero_gear.lancer_belt import calc_belt_lancer_lh as _lan_belt  # type: ignore
+    from legendary_mythic_hero_gear.marksman_goggles import calc_goggles_marksman_ml as _mm_goggles  # type: ignore
+    from legendary_mythic_hero_gear.marksman_boot import calc_boot_marksman_ml as _mm_boot  # type: ignore
+    from legendary_mythic_hero_gear.marksman_glove import calc_glove_marksman_mh as _mm_glove  # type: ignore
+    from legendary_mythic_hero_gear.marksman_belt import calc_belt_marksman_mh as _mm_belt  # type: ignore
+
 
 # -----------------------------
 # App + CORS
@@ -192,6 +220,12 @@ class SimRequest(BaseModel):
     # Chief Skin bonuses (percent values, applies to all troop types)
     attackerChiefSkinBonuses: Optional[Dict[str, float]] = None  # { troops_lethality_pct?, troops_health_pct?, troops_defense_pct?, troops_attack_pct? }
     defenderChiefSkinBonuses: Optional[Dict[str, float]] = None
+    # NEW: Legendary/Mythic Hero Gear (class-specific totals)
+    attackerHeroGear: Optional[Dict[str, float]] = None  # { infantry_lethality_pct?, infantry_health_pct?, infantry_attack_pct?, infantry_defense_pct?, ... per class }
+    defenderHeroGear: Optional[Dict[str, float]] = None
+    # NEW: Daybreak Island bonuses (percent values)
+    attackerDaybreakBonuses: Optional[Dict[str, float]] = None
+    defenderDaybreakBonuses: Optional[Dict[str, float]] = None
 
     @validator("attackerRatios", "defenderRatios")
     def check_ratios_sum(cls, v):
@@ -210,6 +244,7 @@ class SimRequest(BaseModel):
 
 class AnalysisRequest(BaseModel):
     result: Dict[str, Any]
+    openai_api_key: Optional[str] = None
 
 
 class ChiefGearItem(BaseModel):
@@ -369,6 +404,8 @@ def _mk_city_buffs(
     charms: Optional[Dict[str, float]] | None,
     research: Optional[Dict[str, float]] | None,
     chief_skin_bonuses: Optional[Dict[str, float]] = None,
+    hero_gear: Optional[Dict[str, float]] = None,
+    daybreak: Optional[Dict[str, float]] = None,
 ) -> Dict[str, float]:
     """
     Created Logic for review: Merge class-specific city buffs from gear, charms, and research.
@@ -420,27 +457,48 @@ def _mk_city_buffs(
                 if pct:
                     city[f"{cls}_{stat}"] = city.get(f"{cls}_{stat}", 0.0) + pct
         
-        # Chief Skin bonuses (apply to all troop types)
-        if chief_skin_bonuses:
-            # Created Logic for review: Chief Skin bonuses apply to all troop types (Infantry, Lancer, Marksman)
-            for cls in ("infantry", "lancer", "marksman"):
-                # Lethality bonus
-                le = float(chief_skin_bonuses.get("troops_lethality_pct", 0.0)) / 100.0
-                if le:
-                    city[f"{cls}_lethality"] = city.get(f"{cls}_lethality", 0.0) + le
-                # Health bonus
-                hp = float(chief_skin_bonuses.get("troops_health_pct", 0.0)) / 100.0
-                if hp:
-                    city[f"{cls}_health"] = city.get(f"{cls}_health", 0.0) + hp
-                # Defense bonus
-                df = float(chief_skin_bonuses.get("troops_defense_pct", 0.0)) / 100.0
-                if df:
-                    city[f"{cls}_defense"] = city.get(f"{cls}_defense", 0.0) + df
-                # Attack bonus
-                atk = float(chief_skin_bonuses.get("troops_attack_pct", 0.0)) / 100.0
-                if atk:
-                    city[f"{cls}_attack"] = city.get(f"{cls}_attack", 0.0) + atk
-    
+    # Chief Skin bonuses (apply to all troop types)
+    if chief_skin_bonuses:
+        # Created Logic for review: Chief Skin bonuses apply to all troop types (Infantry, Lancer, Marksman)
+        for cls in ("infantry", "lancer", "marksman"):
+            # Lethality bonus
+            le = float(chief_skin_bonuses.get("troops_lethality_pct", 0.0)) / 100.0
+            if le:
+                city[f"{cls}_lethality"] = city.get(f"{cls}_lethality", 0.0) + le
+            # Health bonus
+            hp = float(chief_skin_bonuses.get("troops_health_pct", 0.0)) / 100.0
+            if hp:
+                city[f"{cls}_health"] = city.get(f"{cls}_health", 0.0) + hp
+            # Defense bonus
+            df = float(chief_skin_bonuses.get("troops_defense_pct", 0.0)) / 100.0
+            if df:
+                city[f"{cls}_defense"] = city.get(f"{cls}_defense", 0.0) + df
+            # Attack bonus
+            atk = float(chief_skin_bonuses.get("troops_attack_pct", 0.0)) / 100.0
+            if atk:
+                city[f"{cls}_attack"] = city.get(f"{cls}_attack", 0.0) + atk
+
+    # Daybreak Island bonuses
+    if daybreak:
+        ia = float(daybreak.get("infantry_attack_pct", 0.0)) / 100.0
+        if ia:
+            city["infantry_attack"] = city.get("infantry_attack", 0.0) + ia
+        idf = float(daybreak.get("infantry_defense_pct", 0.0)) / 100.0
+        if idf:
+            city["infantry_defense"] = city.get("infantry_defense", 0.0) + idf
+        ma = float(daybreak.get("marksman_attack_pct", 0.0)) / 100.0
+        if ma:
+            city["marksman_attack"] = city.get("marksman_attack", 0.0) + ma
+        for stat_key, targets in (
+            ("troops_attack_pct", ("infantry_attack","lancer_attack","marksman_attack")),
+            ("troops_defense_pct", ("infantry_defense","lancer_defense","marksman_defense")),
+            ("troops_lethality_pct", ("infantry_lethality","lancer_lethality","marksman_lethality")),
+            ("troops_health_pct", ("infantry_health","lancer_health","marksman_health")),
+        ):
+            v = float(daybreak.get(stat_key, 0.0)) / 100.0
+            if v:
+                for t in targets:
+                    city[t] = city.get(t, 0.0) + v
     return city
 
 
@@ -567,11 +625,63 @@ def get_heroes():
         })
     return out
 
+@app.get("/api/heroes/{class_type}", response_model=List[Dict[str, Any]])
+def get_heroes_by_class(class_type: str):
+    """Get heroes filtered by class type (Infantry, Lancer, Marksman) and sorted by generation"""
+    out = []
+    for key, raw in RAW_HEROES.items():
+        hero = raw[0] if isinstance(raw, list) else raw
+        hero_class = hero.get("hero-class","").capitalize()
+        if hero_class.lower() == class_type.lower():
+            out.append({
+                "name":       hero.get("hero-name", key),
+                "charClass":  hero.get("hero-class","").capitalize(),
+                "generation": hero.get("generation",0),
+            })
+    
+    # Sort by generation order: Rare (0), Epic (1), SSR Gen 1-8 (2-9)
+    def sort_key(hero):
+        gen = hero.get("generation", 0)
+        # Ensure proper ordering: Rare (0) < Epic (1) < SSR Gen 1-8 (2-9)
+        return gen
+    
+    out.sort(key=sort_key)
+    return out
 
 @app.get("/api/troops", response_model=List[str])
 def get_troops():
     return list(TROOP_DEFINITIONS.keys())
 
+@app.get("/api/troops/{class_type}", response_model=List[str])
+def get_troops_by_class(class_type: str):
+    """Get troops filtered by class type (Infantry, Lancer, Marksman) including Helios variants"""
+    all_troops = list(TROOP_DEFINITIONS.keys())
+    filtered_troops = []
+    
+    for troop in all_troops:
+        # Check if troop name starts with the class type OR starts with "Helios" + class type
+        if (troop.lower().startswith(class_type.lower()) or 
+            troop.lower().startswith(f"helios {class_type.lower()}")):
+            filtered_troops.append(troop)
+    
+    # Sort by FC level (extract number from "FC10", "FC9", etc.) and prioritize Helios troops
+    def sort_key(troop):
+        # Extract FC number from troop name like "Infantry (FC10)" -> 10
+        import re
+        match = re.search(r'FC(\d+)', troop)
+        fc_level = int(match.group(1)) if match else 0
+        
+        # Helios troops should come before regular troops at the same FC level
+        # Use negative priority for Helios (so they sort first) and positive for regular
+        is_helios = troop.lower().startswith("helios")
+        priority = -1 if is_helios else 1
+        
+        # Return tuple for sorting: (FC level, priority)
+        # Higher FC levels first, then Helios before regular
+        return (-fc_level, priority)  # Negative FC level for reverse sort, positive priority for Helios first
+
+    filtered_troops.sort(key=sort_key)  # Higher FC levels first, Helios before regular
+    return filtered_troops
 
 @app.post("/api/simulate", response_model=Dict[str, Any])
 def run_simulation(req: SimRequest):
@@ -629,6 +739,8 @@ def run_simulation(req: SimRequest):
         charms: Optional[Dict[str, float]],
         research: Optional[Dict[str, float]],
         chief_skin_bonuses: Optional[Dict[str, float]] = None,
+        hero_gear: Optional[Dict[str, float]] = None,
+        daybreak: Optional[Dict[str, float]] = None,
     ) -> Dict[str, float]:
         city: Dict[str, float] = {}
         if gear:
@@ -649,6 +761,14 @@ def run_simulation(req: SimRequest):
                     city[f"{cls}_lethality"] = city.get(f"{cls}_lethality", 0.0) + le
                 if hp:
                     city[f"{cls}_health"] = city.get(f"{cls}_health", 0.0) + hp
+        # Legendary/Mythic Hero Gear contributions (class-specific), convert percent to decimals
+        if hero_gear:
+            for cls in ("infantry", "lancer", "marksman"):
+                for stat in ("attack", "defense", "lethality", "health"):
+                    pct = float(hero_gear.get(f"{cls}_{stat}_pct", 0.0)) / 100.0
+                    if pct:
+                        city[f"{cls}_{stat}"] = city.get(f"{cls}_{stat}", 0.0) + pct
+
         if research:
             # Created Logic for review: research map contains cumulative percent values; convert to decimals and add
             # Supports both troop-wide keys and class-specific keys
@@ -697,10 +817,33 @@ def run_simulation(req: SimRequest):
                 if atk:
                     city[f"{cls}_attack"] = city.get(f"{cls}_attack", 0.0) + atk
         
+        # Daybreak Island bonuses
+        if daybreak:
+            # class-specific
+            ia = float(daybreak.get("infantry_attack_pct", 0.0)) / 100.0
+            if ia:
+                city["infantry_attack"] = city.get("infantry_attack", 0.0) + ia
+            idf = float(daybreak.get("infantry_defense_pct", 0.0)) / 100.0
+            if idf:
+                city["infantry_defense"] = city.get("infantry_defense", 0.0) + idf
+            ma = float(daybreak.get("marksman_attack_pct", 0.0)) / 100.0
+            if ma:
+                city["marksman_attack"] = city.get("marksman_attack", 0.0) + ma
+            # troop-wide
+            for stat_key, targets in (
+                ("troops_attack_pct", ("infantry_attack","lancer_attack","marksman_attack")),
+                ("troops_defense_pct", ("infantry_defense","lancer_defense","marksman_defense")),
+                ("troops_lethality_pct", ("infantry_lethality","lancer_lethality","marksman_lethality")),
+                ("troops_health_pct", ("infantry_health","lancer_health","marksman_health")),
+            ):
+                v = float(daybreak.get(stat_key, 0.0)) / 100.0
+                if v:
+                    for t in targets:
+                        city[t] = city.get(t, 0.0) + v
         return city
 
-    atk_city_buffs = _mk_city_buffs(req.attackerGear, req.attackerCharms, req.attackerResearch, req.attackerChiefSkinBonuses)
-    def_city_buffs = _mk_city_buffs(req.defenderGear, req.defenderCharms, req.defenderResearch, req.defenderChiefSkinBonuses)
+    atk_city_buffs = _mk_city_buffs(req.attackerGear, req.attackerCharms, req.attackerResearch, req.attackerChiefSkinBonuses, req.attackerHeroGear, req.attackerDaybreakBonuses)
+    def_city_buffs = _mk_city_buffs(req.defenderGear, req.defenderCharms, req.defenderResearch, req.defenderChiefSkinBonuses, req.defenderHeroGear, req.defenderDaybreakBonuses)
 
     # Bonus sources (aggregate from all heroes, including rally joiners)
     atk_bonus = BonusSource(atk_form.all_heroes(), city_buffs=atk_city_buffs)
@@ -710,8 +853,23 @@ def run_simulation(req: SimRequest):
 
     # Run sim
     if req.sims <= 1:
-        return simulate_battle(rpt, use_power_weighting=False)
-    return monte_carlo_battle(rpt, n_sims=req.sims, use_power_weighting=False)
+        out = simulate_battle(rpt, use_power_weighting=False)
+    else:
+        out = monte_carlo_battle(rpt, n_sims=req.sims, use_power_weighting=False)
+
+    # Include gear percentages in result JSON for UI display/copy
+    try:
+        base = out.get("sample_battle") or out
+        base["attackerGear"] = req.attackerGear or {}
+        base["defenderGear"] = req.defenderGear or {}
+        base["attackerCharms"] = req.attackerCharms or {}
+        base["defenderCharms"] = req.defenderCharms or {}
+        base["attackerHeroGear"] = req.attackerHeroGear or {}
+        base["defenderHeroGear"] = req.defenderHeroGear or {}
+    except Exception:
+        pass
+
+    return out
 
 
 @app.post("/api/simulate/weighted", response_model=Dict[str, Any])
@@ -764,8 +922,8 @@ def run_simulation_weighted(req: SimRequest):
         support_heroes=def_support,
     )
 
-    atk_city_buffs = _mk_city_buffs(req.attackerGear, req.attackerCharms, req.attackerResearch, req.attackerChiefSkinBonuses)
-    def_city_buffs = _mk_city_buffs(req.defenderGear, req.defenderCharms, req.defenderResearch, req.defenderChiefSkinBonuses)
+    atk_city_buffs = _mk_city_buffs(req.attackerGear, req.attackerCharms, req.attackerResearch, req.attackerChiefSkinBonuses, req.attackerHeroGear)
+    def_city_buffs = _mk_city_buffs(req.defenderGear, req.defenderCharms, req.defenderResearch, req.defenderChiefSkinBonuses, req.defenderHeroGear)
 
     atk_bonus = BonusSource(atk_form.all_heroes(), city_buffs=atk_city_buffs)
     def_bonus = BonusSource(def_form.all_heroes(), city_buffs=def_city_buffs)
@@ -773,8 +931,22 @@ def run_simulation_weighted(req: SimRequest):
     rpt = BattleReportInput(atk_form, def_form, atk_bonus, def_bonus)
 
     if req.sims <= 1:
-        return simulate_battle_weighted(rpt)
-    return monte_carlo_battle_weighted(rpt, n_sims=req.sims)
+        out = simulate_battle_weighted(rpt)
+    else:
+        out = monte_carlo_battle_weighted(rpt, n_sims=req.sims)
+
+    try:
+        base = out.get("sample_battle") or out
+        base["attackerGear"] = req.attackerGear or {}
+        base["defenderGear"] = req.defenderGear or {}
+        base["attackerCharms"] = req.attackerCharms or {}
+        base["defenderCharms"] = req.defenderCharms or {}
+        base["attackerHeroGear"] = req.attackerHeroGear or {}
+        base["defenderHeroGear"] = req.defenderHeroGear or {}
+    except Exception:
+        pass
+
+    return out
 
 
 # -----------------------------
@@ -966,6 +1138,101 @@ def calc_chief_gear(req: ChiefGearRequest):
         marksman_power=int(marksman_power),
     )
 
+
+# -----------------------------
+# Legendary/Mythic Hero Gear routes
+# -----------------------------
+
+from typing import Literal as _Literal
+
+class HeroGearPiece(BaseModel):
+    level: int
+    essence_level: int
+    mastery_forged: bool = True
+    mastery_level: int = 0
+    stacking: _Literal["additive","multiplicative"] = "additive"
+
+class HeroGearClass(BaseModel):
+    goggles: HeroGearPiece
+    boot: HeroGearPiece
+    glove: HeroGearPiece
+    belt: HeroGearPiece
+
+class HeroGearCalcRequest(BaseModel):
+    infantry: HeroGearClass
+    lancer: HeroGearClass
+    marksman: HeroGearClass
+
+class HeroGearTotals(BaseModel):
+    infantry_lethality_pct: float
+    infantry_health_pct: float
+    infantry_attack_pct: float
+    infantry_defense_pct: float
+    lancer_lethality_pct: float
+    lancer_health_pct: float
+    lancer_attack_pct: float
+    lancer_defense_pct: float
+    marksman_lethality_pct: float
+    marksman_health_pct: float
+    marksman_attack_pct: float
+    marksman_defense_pct: float
+
+
+def _calc_infantry(p: HeroGearClass) -> tuple[float,float,float,float]:
+    # returns (leth, health, atk, def)
+    g1 = _inf_goggles(p.goggles.level, p.goggles.mastery_forged, p.goggles.mastery_level, p.goggles.essence_level, p.goggles.stacking)
+    b1 = _inf_boot(p.boot.level, p.boot.mastery_forged, p.boot.mastery_level, p.boot.essence_level, p.boot.stacking)
+    g2 = _inf_glove(p.glove.level, p.glove.mastery_forged, p.glove.mastery_level, p.glove.essence_level, p.glove.stacking)
+    b2 = _inf_belt(p.belt.level, p.belt.mastery_forged, p.belt.mastery_level, p.belt.essence_level, p.belt.stacking)
+    leth = float(g1.get("infantry_lethality_pct",0.0)) + float(b1.get("infantry_lethality_pct",0.0))
+    hp   = float(g2.get("infantry_health_pct",0.0)) + float(b2.get("infantry_health_pct",0.0))
+    atk  = float(g1.get("infantry_attack_pct",0.0)) + float(b2.get("infantry_attack_pct",0.0))
+    df   = float(g2.get("infantry_defense_pct",0.0)) + float(b1.get("infantry_defense_pct",0.0))
+    return leth, hp, atk, df
+
+def _calc_lancer(p: HeroGearClass) -> tuple[float,float,float,float]:
+    g1 = _lan_goggles(p.goggles.level, p.goggles.mastery_forged, p.goggles.mastery_level, p.goggles.essence_level, p.goggles.stacking)
+    b1 = _lan_boot(p.boot.level, p.boot.mastery_forged, p.boot.mastery_level, p.boot.essence_level, p.boot.stacking)
+    g2 = _lan_glove(p.glove.level, p.glove.mastery_forged, p.glove.mastery_level, p.glove.essence_level, p.glove.stacking)
+    b2 = _lan_belt(p.belt.level, p.belt.mastery_forged, p.belt.mastery_level, p.belt.essence_level, p.belt.stacking)
+    leth = float(g1.get("lancer_lethality_pct",0.0)) + float(b1.get("lancer_lethality_pct",0.0))
+    hp   = float(g2.get("lancer_health_pct",0.0)) + float(b2.get("lancer_health_pct",0.0))
+    atk  = float(g1.get("lancer_attack_pct",0.0)) + float(b2.get("lancer_attack_pct",0.0))
+    df   = float(g2.get("lancer_defense_pct",0.0)) + float(b1.get("lancer_defense_pct",0.0))
+    return leth, hp, atk, df
+
+def _calc_marksman(p: HeroGearClass) -> tuple[float,float,float,float]:
+    g1 = _mm_goggles(p.goggles.level, p.goggles.mastery_forged, p.goggles.mastery_level, p.goggles.essence_level, p.goggles.stacking)
+    b1 = _mm_boot(p.boot.level, p.boot.mastery_forged, p.boot.mastery_level, p.boot.essence_level, p.boot.stacking)
+    g2 = _mm_glove(p.glove.level, p.glove.mastery_forged, p.glove.mastery_level, p.glove.essence_level, p.glove.stacking)
+    b2 = _mm_belt(p.belt.level, p.belt.mastery_forged, p.belt.mastery_level, p.belt.essence_level, p.belt.stacking)
+    leth = float(g1.get("marksman_lethality_pct",0.0)) + float(b1.get("marksman_lethality_pct",0.0))
+    hp   = float(g2.get("marksman_health_pct",0.0)) + float(b2.get("marksman_health_pct",0.0))
+    atk  = float(g1.get("marksman_attack_pct",0.0)) + float(b2.get("marksman_attack_pct",0.0))
+    df   = float(g2.get("marksman_defense_pct",0.0)) + float(b1.get("marksman_defense_pct",0.0))
+    return leth, hp, atk, df
+
+
+@app.post("/api/hero-gear/calc", response_model=HeroGearTotals)
+def calc_hero_gear(req: HeroGearCalcRequest):
+    # Created Logic for review: sum four pieces per class, mapping lethality/health and empowerment bonuses appropriately
+    i_leth, i_hp, i_atk, i_def = _calc_infantry(req.infantry)
+    l_leth, l_hp, l_atk, l_def = _calc_lancer(req.lancer)
+    m_leth, m_hp, m_atk, m_def = _calc_marksman(req.marksman)
+    return HeroGearTotals(
+        infantry_lethality_pct=round(i_leth, 2),
+        infantry_health_pct=round(i_hp, 2),
+        infantry_attack_pct=round(i_atk, 2),
+        infantry_defense_pct=round(i_def, 2),
+        lancer_lethality_pct=round(l_leth, 2),
+        lancer_health_pct=round(l_hp, 2),
+        lancer_attack_pct=round(l_atk, 2),
+        lancer_defense_pct=round(l_def, 2),
+        marksman_lethality_pct=round(m_leth, 2),
+        marksman_health_pct=round(m_hp, 2),
+        marksman_attack_pct=round(m_atk, 2),
+        marksman_defense_pct=round(m_def, 2),
+    )
 
 @app.get("/api/gear/chief/charms/options", response_model=List[Dict[str, Any]])
 def get_chief_charms_options():
@@ -1331,7 +1598,7 @@ def analyze(req: AnalysisRequest):
             return {"analysis": cached}
 
         # If OpenAI is disabled or we are in cooldown, return heuristic immediately
-        api_key = os.getenv("OPENAI_API_KEY")
+        api_key = req.openai_api_key or os.getenv("OPENAI_API_KEY")
         model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
         if os.getenv("DISABLE_OPENAI") or not api_key or _respect_cooldown():
