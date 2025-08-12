@@ -5,7 +5,7 @@ NO SECTION ABBREVIATED.
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from expedition_battle_mechanics.definitions import TroopDefinition
+from .definitions import TroopDefinition
 
 
 @dataclass

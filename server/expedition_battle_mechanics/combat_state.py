@@ -16,15 +16,15 @@ import random
 from collections import defaultdict
 from typing import Dict, Tuple, DefaultDict, Callable, Optional, List
 
-from expedition_battle_mechanics.formation import RallyFormation
-from expedition_battle_mechanics.bonus import BonusSource
-from expedition_battle_mechanics.troop import TroopGroup
-from expedition_battle_mechanics.hero import Hero
+from .formation import RallyFormation
+from .bonus import BonusSource
+from .troop import TroopGroup
+from .hero import Hero
+from .timeline import TurnLogger
 
 # passive expedition buffs
-from expedition_battle_mechanics.skill_handlers.passive import PASSIVE_SKILLS
-from expedition_battle_mechanics.skill_handlers import get_passive_strategy
-from expedition_battle_mechanics.stacking import BonusBucket
+from .passive import PASSIVE_SKILLS, get_passive_strategy
+from .stacking import BonusBucket
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -95,6 +95,7 @@ class CombatState:
         # bookkeeping
         self.turn: int = 0
         self.skill_procs: DefaultDict[str, int] = defaultdict(int)
+        self.turnlog = TurnLogger()
 
         # Created Logic for review: toggle for using Troop Power ratio in damage weighting.
         # Tests expect weighting by default; docs ask to ignore Power, so expose a flag.
@@ -113,10 +114,17 @@ class CombatState:
             "def": defaultdict(int),
         }
 
+        # Created Logic for review: dampen flat extra damage pools so burst skills don't end battles in 1 turn
+        # This factor scales down the sum of flat extras before distributing to defenders.
+        # Tune between 0.002 and 0.01 depending on desired burstiness.
+        self.extra_pool_damping: float = 0.004
+
     # ─────────────────────────────────────────────────────────────────────
     #   public helper for handlers
     def add_extra_damage(self, side: str, amount: float) -> None:
         self._extra_damage[side] += amount
+        # Log extra damage attribution for timeline
+        self.turnlog.add_extra(side, float(amount))
 
     # ─────────────────────────────────────────────────────────────────────
     #   passive-buff aggregation
@@ -139,6 +147,11 @@ class CombatState:
                 def _collect(key: str, pct: float) -> None:
                     collected.append((key, pct))
 
+                # Created Logic for review: use EW level for the EW expedition skill if present
+                if hero.exclusive_weapon and hero.exclusive_weapon.skills.get("expedition") and sk.name == hero.exclusive_weapon.skills["expedition"].name:
+                    lvl = hero.exclusive_weapon.level
+                else:
+                    lvl = hero.selected_skill_levels.get(sk.name, 5)
                 handler(hero, lvl, _collect)
 
                 bucket = effects.setdefault(
@@ -195,6 +208,13 @@ class CombatState:
             self.skill_procs[f"{name}-{side}-{troop_class}"] += 1
         else:
             self.skill_procs[f"{name}-{side}"] += 1
+        # Record event for this turn (displayed on total line)
+        try:
+            cls = (troop_class.capitalize() if troop_class else "All")
+        except Exception:
+            cls = "All"
+        # turn index for display is 1-based; step_round closes with (turn+1)
+        self.turnlog.proc(self.turn + 1, side, name, cls)
 
     def get_side_groups(self, hero: Hero):
         return (
@@ -220,14 +240,18 @@ class CombatState:
 
     # ------------------------------------------------------------------ #
     def _run_on_turn(self, side: str) -> None:
-        from expedition_battle_mechanics.skill_handlers.on_turn import ON_TURN
+        from expedition_battle_mechanics.on_turn import ON_TURN as ON_TURN
 
         heroes = self.attacker_all_heroes if side == "atk" else self.defender_all_heroes
         for hero in heroes:
             for sk in hero.skills["expedition"]:
                 handler = ON_TURN.get(sk.name)
                 if handler:
-                    lvl = hero.selected_skill_levels.get(sk.name, 5)
+                    # Created Logic for review: use EW level for the EW expedition skill if present
+                    if hero.exclusive_weapon and hero.exclusive_weapon.skills.get("expedition") and sk.name == hero.exclusive_weapon.skills["expedition"].name:
+                        lvl = hero.exclusive_weapon.level
+                    else:
+                        lvl = hero.selected_skill_levels.get(sk.name, 5)
                     handler(self, hero, lvl)
 
     # ------------------------------------------------------------------ #
@@ -245,14 +269,14 @@ class CombatState:
         self._run_on_turn("def")
 
         # 1) compute damage maps for both sides BEFORE applying
-        atk_map = self._compute_side_damage(
+        atk_map, atk_by_attacker_cls, atk_extra = self._compute_side_damage(
             self.attacker_groups,
             self.defender_groups,
             self.attacker_bonus,
             self.attacker_special,
             "atk",
         )
-        def_map = self._compute_side_damage(
+        def_map, def_by_attacker_cls, def_extra = self._compute_side_damage(
             self.defender_groups,
             self.attacker_groups,
             self.defender_bonus,
@@ -260,9 +284,25 @@ class CombatState:
             "def",
         )
 
-        # 2) apply casualties simultaneously
-        self._apply_damage(self.defender_groups, atk_map, "def")
-        self._apply_damage(self.attacker_groups, def_map, "atk")
+        # 2) distribute flat extras proportionally across defender classes
+        def _with_extra(dist_map: Dict[str, float], defenders: Dict[str, TroopGroup], extra_pool: float) -> Dict[str, float]:
+            out = dist_map.copy()
+            total_enemy = sum(d.count for d in defenders.values() if d.count > 0)
+            if total_enemy > 0 and extra_pool > 0:
+                damped = extra_pool * self.extra_pool_damping
+                for dcls, deff in defenders.items():
+                    if deff.count <= 0:
+                        continue
+                    share = deff.count / total_enemy
+                    out[dcls] = out.get(dcls, 0.0) + damped * share
+            return out
+
+        atk_map_applied = _with_extra(atk_map, self.defender_groups, atk_extra)
+        def_map_applied = _with_extra(def_map, self.attacker_groups, def_extra)
+
+        # apply casualties simultaneously
+        self._apply_damage(self.defender_groups, atk_map_applied, "def")
+        self._apply_damage(self.attacker_groups, def_map_applied, "atk")
 
         # 3) expire 2-turn defence buffs
         for g in list(self.attacker_groups.values()) + list(
@@ -281,6 +321,22 @@ class CombatState:
                     del self.temp_bonus_turns[side][k]
                     del self.temp_bonus[side][k]
 
+        # 4) timeline snapshot (log base and per-class by attacker class; extras already tracked)
+        def _breakdown(by_attacker_cls: Dict[str, float]) -> Dict[str, float]:
+            base_total = float(sum(by_attacker_cls.values()))
+            return {
+                "base": base_total,
+                "Infantry": float(by_attacker_cls.get("Infantry", 0.0)),
+                "Lancer": float(by_attacker_cls.get("Lancer", 0.0)),
+                "Marksman": float(by_attacker_cls.get("Marksman", 0.0)),
+            }
+
+        atk_breakdown = _breakdown(atk_by_attacker_cls)
+        def_breakdown = _breakdown(def_by_attacker_cls)
+        # Close this turn snapshot. We use turn+1 so first snapshot is Turn 1.
+        self.turnlog.close_turn(self.turn + 1, atk_breakdown, def_breakdown)
+
+        # advance turn counter
         self.turn += 1
 
     # ─────────────────────────────────────────────────────────────────────
@@ -293,20 +349,23 @@ class CombatState:
         bonus: Dict[str, float],
         bonus_special: Dict[str, float],
         side: str,
-    ) -> Dict[str, float]:
-        """Returns {defender_class: raw_damage}.  Invokes ON_ATTACK handlers.
+    ) -> Tuple[Dict[str, float], Dict[str, float], float]:
+        """Build per-defender-class damage map and per-attacker-class base map.
+
+        Returns (damage_by_defender_class_without_extras, base_by_attacker_class, flat_extra_pool).
 
         ``bonus`` holds regular stat modifiers while ``bonus_special`` contains
         the special bonuses (territory, gem buffs, etc.) that apply using the
         compound formula described on the Whiteout Survival wiki.
         """
 
-        from expedition_battle_mechanics.skill_handlers.on_attack import ON_ATTACK
+        from expedition_battle_mechanics.on_attack import ON_ATTACK
 
         dmg: DefaultDict[str, float] = defaultdict(float)
+        base_by_attacker: DefaultDict[str, float] = defaultdict(float)
         total_enemy = sum(d.count for d in defenders.values() if d.count > 0)
         if total_enemy == 0:
-            return dmg
+            return dict(dmg), dict(base_by_attacker), 0.0
 
         extra_pool = self._extra_damage[side]
 
@@ -369,7 +428,11 @@ class CombatState:
             for sk in hero.skills["expedition"]:
                 handler = ON_ATTACK.get(sk.name)
                 if handler:
-                    lvl = hero.selected_skill_levels.get(sk.name, 5)
+                    # Created Logic for review: use EW level for the EW expedition skill if present
+                    if hero.exclusive_weapon and hero.exclusive_weapon.skills.get("expedition") and sk.name == hero.exclusive_weapon.skills["expedition"].name:
+                        lvl = hero.exclusive_weapon.level
+                    else:
+                        lvl = hero.selected_skill_levels.get(sk.name, 5)
                     handler(self, side, atk, hero, lvl)
 
             # include class-specific attack bonuses e.g., "lancer_attack"
@@ -395,7 +458,7 @@ class CombatState:
                 continue
             dcls, deff = target
 
-            atk_mul, def_mul, dmg_mul = self._troop_skill_mods(atk, deff)
+            atk_mul, def_mul, dmg_mul = self._troop_skill_mods(atk, deff, side)
 
             # include class-specific defense bonuses e.g., "infantry_defense"
             # Fix: avoid double-counting class-specific defense bonus in the same way.
@@ -424,26 +487,28 @@ class CombatState:
             per_troop += eff_leth * ratio
             base = per_troop * atk.count * dmg_mul
 
+            # Created Logic for review: support class/generic "damage" multipliers
+            # contributed by expedition skills (e.g., Marksman-damage, Lancer-damage, damage).
+            dmg_pct = cls_bonus(bonus_combined, cls, "damage")
+            if dmg_pct:
+                base *= (1.0 + dmg_pct)
+
             dmg[dcls] += base
+            base_by_attacker[atk.class_name] += base
 
-        total_enemy = sum(d.count for d in defenders.values() if d.count > 0)
-        if total_enemy > 0 and extra_pool > 0:
-            for dcls, deff in defenders.items():
-                if deff.count <= 0:
-                    continue
-                share = deff.count / total_enemy
-                dmg[dcls] += extra_pool * share
-
-        # bucket consumed
-        self._extra_damage[side] = 0.0
-        return dmg
+        # Do not consume or distribute extra here so the caller can both log and apply
+        return dict(dmg), dict(base_by_attacker), float(extra_pool)
 
     # ------------------------------------------------------------------ #
     def _troop_skill_mods(
-        self, atk: TroopGroup, deff: TroopGroup
+        self, atk: TroopGroup, deff: TroopGroup, side: Optional[str] = None
     ) -> Tuple[float, float, float]:
         atk_mul = def_mul = 1.0
         dmg_mul = 1.0
+        # Map which TEAM is defending in this interaction for proc logging
+        # side is the TEAM whose damage we are computing ("atk" team or "def" team)
+        # so the defender team is the opposite of side
+        defender_team = "def" if (side or "atk") == "atk" else "atk"
 
         # ---- Infantry ----
         if atk.class_name == "Infantry" and deff.class_name == "Lancer":
@@ -462,8 +527,8 @@ class CombatState:
             # (50% × 0.70) when active.
             if random.random() < 0.375:
                 dmg_mul *= 0.35
-                self._proc("Crystal Shield", "def", deff.class_name.lower())
-                self._proc("Body of Light", "def", deff.class_name.lower())
+                self._proc("Crystal Shield", defender_team, deff.class_name.lower())
+                self._proc("Body of Light", defender_team, deff.class_name.lower())
 
         # ---- Lancer ----
         if atk.class_name == "Lancer":
@@ -473,10 +538,10 @@ class CombatState:
                 atk_mul *= 0.90  # suffers vs Infantry
             if random.random() < 0.15:
                 atk_mul *= 2.0  # Crystal Lance
-                self._proc("Crystal Lance", "atk", atk.class_name.lower())
+                self._proc("Crystal Lance", (side or "atk"), atk.class_name.lower())
         if deff.class_name == "Lancer" and random.random() < 0.10:
             dmg_mul *= 0.5  # Incandescent Field
-            self._proc("Incandescent Field", "def", deff.class_name.lower())
+            self._proc("Incandescent Field", defender_team, deff.class_name.lower())
 
         # ---- Marksman ----
         if atk.class_name == "Marksman":
@@ -485,10 +550,10 @@ class CombatState:
                 atk_mul *= 1.10  # Ranged Strike
             if random.random() < 0.10:
                 atk_mul *= 2.0  # Volley
-                self._proc("Volley", "atk", atk.class_name.lower())
+                self._proc("Volley", (side or "atk"), atk.class_name.lower())
             if random.random() < 0.30:
                 atk_mul *= 1.50 * 1.25  # Crystal Gunpowder + Flame Charge bonus
-                self._proc("Crystal Gunpowder", "atk", atk.class_name.lower())
+                self._proc("Crystal Gunpowder", (side or "atk"), atk.class_name.lower())
 
         return atk_mul, def_mul, dmg_mul
 

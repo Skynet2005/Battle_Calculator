@@ -18,7 +18,7 @@ from copy import deepcopy
 from typing import Any, Dict, List
 from collections import defaultdict
 
-from expedition_battle_mechanics.combat_state import (
+from .combat_state import (
     CombatState,
     BattleReportInput,
 )
@@ -49,14 +49,14 @@ def _hero_info(
     for cls, hero in heroes.items():
         grp = groups_after[cls]
 
-        # grab % at the hero’s chosen level (defaults to 5)
-        skill_pcts = {
-            sk.name: hero.skills_pct(
-                sk.name,
-                hero.selected_skill_levels.get(sk.name, 5),
-            )
-            for sk in hero.skills.get("expedition", [])
-        }
+        # grab % at the hero’s chosen level (defaults to 5), but use EW level for EW expedition skill
+        skill_pcts = {}
+        for sk in hero.skills.get("expedition", []):
+            if hero.exclusive_weapon and hero.exclusive_weapon.skills.get("expedition") and sk.name == hero.exclusive_weapon.skills["expedition"].name:
+                lvl = hero.exclusive_weapon.level
+            else:
+                lvl = hero.selected_skill_levels.get(sk.name, 5)
+            skill_pcts[sk.name] = hero.skills_pct(sk.name, lvl)
 
         out[cls] = {
             "name": hero.name,
@@ -155,10 +155,10 @@ def _structure_procs(proc: Dict[str, int]) -> Dict[str, Dict[str, Dict[str, int]
 
 # ─────────────────────────────────────────────────────────────────────────────
 def simulate_battle(
-    report: BattleReportInput, max_rounds: int = 10_000, use_power_weighting: bool = False
+    report: BattleReportInput, max_rounds: int = 10_000
 ) -> Dict[str, Any]:
     rpt = deepcopy(report)
-    state = CombatState(rpt, use_power_weighting=use_power_weighting)
+    state = CombatState(rpt)
 
     atk_start = {t: g.count for t, g in state.attacker_groups.items()}
     def_start = {t: g.count for t, g in state.defender_groups.items()}
@@ -199,6 +199,20 @@ def simulate_battle(
         grp.definition.power * def_end[cls]
         for cls, grp in state.defender_groups.items()
     )
+
+    # Build timeline for charts
+    timeline = [
+        {
+            "turn": snap.turn,
+            "attacker": snap.attacker,
+            "defender": snap.defender,
+            "events": [
+                {"side": e.side, "skill": e.skill, "class": e.cls, "amount": e.amount}
+                for e in snap.events
+            ],
+        }
+        for snap in state.turnlog.timeline
+    ]
 
     return {
         "winner": winner,
@@ -278,12 +292,13 @@ def simulate_battle(
                 "end": atk_power_end - def_power_end,
             },
         },
+        "timeline": timeline,
     }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 def monte_carlo_battle(
-    report: BattleReportInput, n_sims: int = 1_000, use_power_weighting: bool = False
+    report: BattleReportInput, n_sims: int = 1_000
 ) -> Dict[str, Any]:
     wins = {"attacker": 0, "defender": 0}
     atk_surv = def_surv = 0
@@ -291,7 +306,7 @@ def monte_carlo_battle(
     sample = None
 
     for i in range(n_sims):
-        res = simulate_battle(report, max_rounds=10_000, use_power_weighting=use_power_weighting)
+        res = simulate_battle(report, max_rounds=10_000)
         if i == 0:
             sample = res
         wins[res["winner"]] += 1
@@ -319,8 +334,8 @@ def monte_carlo_battle(
 
 # Convenience wrappers for weighted mode (keeps old behavior explicit)
 def simulate_battle_weighted(report: BattleReportInput, max_rounds: int = 10_000) -> Dict[str, Any]:
-    return simulate_battle(report, max_rounds=max_rounds, use_power_weighting=True)
+    return simulate_battle(report, max_rounds=max_rounds)
 
 
 def monte_carlo_battle_weighted(report: BattleReportInput, n_sims: int = 1_000) -> Dict[str, Any]:
-    return monte_carlo_battle(report, n_sims=n_sims, use_power_weighting=True)
+    return monte_carlo_battle(report, n_sims=n_sims)

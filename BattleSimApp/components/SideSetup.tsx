@@ -76,6 +76,8 @@ interface Props {
   researchSelection?: ResearchSelection | null;
   onResearchSelectionChange?: (rows: ResearchSelection) => void;
   onResearchBuffsChange?: (buffs: ResearchBuffs) => void;
+  // Created Logic for review: choose which subset to render
+  variant?: "formation" | "city";
 }
 
 export const SideSetup: React.FC<Props> = (p) => {
@@ -113,24 +115,13 @@ export const SideSetup: React.FC<Props> = (p) => {
     }
   };
 
-  const normalize = () => {
-    const vals = (Object.values(p.ratioSel) as string[]).map((v) => Math.max(0, parseFloat(v || "0")));
-    const total = vals.reduce((a, b) => a + (isNaN(b) ? 0 : b), 0);
-    const safeTotal = total > 0 ? total : 1;
-    const classes: Class[] = ["Infantry", "Lancer", "Marksman"];
-    const next = { ...p.ratioSel } as { [cls in Class]: string };
-    classes.forEach((cls, i) => {
-      next[cls] = String(Math.round((vals[i] / safeTotal) * 1000) / 1000);
-    });
-    p.setRatioSel(next);
-  };
+  const showFormation = (p.variant ?? "formation") === "formation";
+  const showCity = (p.variant ?? "formation") === "city";
 
   return (
     <View>
-      {/* Hero Formation & Ratios */}
-      <CollapsibleSection title="Hero Formation & Ratios" defaultOpen>
-        {/* Class rows */}
-        {(["Infantry","Lancer","Marksman"] as Class[]).map((cls) => {
+      {showFormation && (
+        (["Infantry","Lancer","Marksman"] as Class[]).map((cls) => {
           const heroSel = p.heroSel[cls];
           const troopSel = p.troopSel[cls];
           const slot = p.slotSel[cls];
@@ -152,46 +143,40 @@ export const SideSetup: React.FC<Props> = (p) => {
           const onRatioChange = (c: Class, v: string) => p.setRatioSel({ ...p.ratioSel, [c]: v });
 
           return (
-            <View key={`${p.side}-${cls}`}>
-              <ClassRow
-                cls={cls}
-                side={p.side}
-                heroes={p.heroesByClass[cls]}
-                troops={p.troopsByClass[cls]}
-                heroSel={heroSel}
-                troopSel={troopSel}
-                slot={slot}
-                ewLevel={ew}
-                ratio={ratio}
-                onHeroChange={onHeroChange}
-                onTroopChange={onTroopChange}
-                onSlotChange={onSlotChange}
-                onEwLevelChange={onEwChange}
-                onRatioChange={onRatioChange}
-                gearSel={gearSel}
-                onGearChange={() => {}} // Placeholder for now
-                charmsSel={{}}
-                onCharmsChange={() => {}} // Placeholder for now
-                skinSel=""
-                onSkinChange={() => {}} // Placeholder for now
-              />
-
-              {/* Per-class Hero Gear immediately after setup */}
-              <HeroGearSection
-                side={p.side}
-                disabled={p.disabled}
-                value={p.heroGearSelection || null}
-                onChange={p.onHeroGearSelectionChange}
-                onlyClass={cls}
-              />
-            </View>
+            <CollapsibleSection key={`${p.side}-${cls}`} title={`${cls} Setup`} defaultOpen={false}>
+              <View>
+                <ClassRow
+                  cls={cls}
+                  side={p.side}
+                  heroes={p.heroesByClass[cls]}
+                  troops={p.troopsByClass[cls]}
+                  heroSel={heroSel}
+                  troopSel={troopSel}
+                  slot={slot}
+                  ewLevel={ew}
+                  ratio={ratio}
+                  onHeroChange={onHeroChange}
+                  onTroopChange={onTroopChange}
+                  onSlotChange={onSlotChange}
+                  onEwLevelChange={onEwChange}
+                  onRatioChange={onRatioChange}
+                  count={counts[cls]}
+                  onCountChange={onCountChange}
+                  gearSel={gearSel}
+                  onGearChange={() => {}}
+                  charmsSel={{}}
+                  onCharmsChange={() => {}}
+                  skinSel=""
+                  onSkinChange={() => {}}
+                />
+              </View>
+            </CollapsibleSection>
           );
-        })}
-      </CollapsibleSection>
+        })
+      )}
 
-      {/* Support Heroes (Joiners) for Rally */}
-      {p.attackType === "rally" && p.supportHeroes && p.onSupportHeroesChange && (
-        <CollapsibleSection title="Support Heroes (Joiners)" defaultOpen>
+      {showFormation && p.attackType === "rally" && p.supportHeroes && p.onSupportHeroesChange && (
+        <CollapsibleSection title="Support Heroes (Joiners)">
           <View style={isVerySmall ? styles.mobileRow : styles.row}>
             {p.supportHeroes!.map((hero, idx) => (
               <View key={`${p.side}-joiner-${idx}`} style={{ flex: 1, minWidth: 0, marginRight: idx < p.supportHeroes!.length - 1 ? 8 : 0 }}>
@@ -217,86 +202,86 @@ export const SideSetup: React.FC<Props> = (p) => {
         </CollapsibleSection>
       )}
 
-      {/* Chief Gear + Charms */}
-      <CollapsibleSection
-        title="Chief Gear & Charms"
-        defaultOpen
-        rightActions={(
-          <TouchableOpacity onPress={normalize} style={styles.miniButton}>
-            <Text style={styles.miniButtonText}>Normalize Ratios</Text>
-          </TouchableOpacity>
-        )}
-      >
-        <View style={[isVerySmall ? styles.mobileRow : styles.row, { flexDirection: isVerySmall ? 'column' : 'row' }]}>
-          <View style={{ flex: 1, minWidth: 0, marginRight: isVerySmall ? 0 : 6, marginBottom: isVerySmall ? 8 : 0 }}>
-            <ChiefGearSection
-              side={p.side}
-              hideHeader
-              disabled={p.disabled}
-              value={p.gearSelection}
-              onChange={p.onGearSelectionChange}
-            />
-          </View>
-          <View style={{ flex: 1, minWidth: 0, marginLeft: isVerySmall ? 0 : 6 }}>
-            <ChiefCharmsSection
-              side={p.side}
-              hideHeader
-              disabled={p.disabled}
-              value={p.charmLevels as any}
-              onChange={p.onCharmLevelsChange as any}
-            />
-          </View>
-        </View>
-      </CollapsibleSection>
-
-      {/* Chief Skin Bonuses */}
-      <CollapsibleSection title="Chief Skin Bonuses" defaultOpen>
-        <View style={isVerySmall ? styles.mobileRow : styles.row}>
-          <ChiefSkinSection
-            side={p.side}
-            disabled={p.disabled}
-            value={p.chiefSkinBonuses}
-            onChange={p.onChiefSkinBonusesChange}
-          />
-        </View>
-      </CollapsibleSection>
-
-      {/* Daybreak Island Bonuses */}
-      <CollapsibleSection title="Daybreak Island Bonuses" defaultOpen>
-        <View style={isVerySmall ? styles.mobileRow : styles.row}>
-          <DaybreakSection
-            side={p.side}
-            disabled={p.disabled}
-            value={p.daybreakBonuses}
-            onChange={p.onDaybreakChange}
-          />
-        </View>
-      </CollapsibleSection>
-
-      {/* Research */}
-      <CollapsibleSection title="Battle Research" defaultOpen>
-        <View style={isVerySmall ? styles.mobileRow : styles.row}>
-          <ResearchSection
-            side={p.side}
-            onChange={(b) => p.onResearchBuffsChange && p.onResearchBuffsChange(b)}
-            onSelectionChange={(rows)=> p.onResearchSelectionChange && p.onResearchSelectionChange(rows)}
-            value={p.researchSelection || undefined}
-          />
-        </View>
-      </CollapsibleSection>
-
-      {/* Ratio → Counts helper */}
-      <CollapsibleSection title="Troop Ratios & Counts" defaultOpen>
-        <View style={isVerySmall ? styles.mobileRow : styles.row}>
-          {(["Infantry","Lancer","Marksman"] as Class[]).map((cls) => (
-            <View key={cls} style={{ flex: 1, paddingHorizontal: 6 }}>
-              <Text style={styles.label}>{cls} Count</Text>
-              {/* TextInput is not available in the web version, so this will be a placeholder */}
-              <Text style={styles.input}>{counts[cls]}</Text>
+      {showCity && (
+        <>
+          {/* City Buffs Section (Gear & Charms) */}
+          <CollapsibleSection
+            title={`Chief Gear & Charms`}
+            defaultOpen={false}
+          >
+            <View style={[isVerySmall ? styles.mobileRow : styles.row, { flexDirection: isVerySmall ? 'column' : 'row' }]}> 
+              <View style={{ flex: 1, minWidth: 0, marginRight: isVerySmall ? 0 : 6, marginBottom: isVerySmall ? 8 : 0 }}>
+                <ChiefGearSection
+                  side={p.side}
+                  hideHeader
+                  disabled={p.disabled}
+                  value={p.gearSelection}
+                  onChange={p.onGearSelectionChange}
+                />
+              </View>
+              <View style={{ flex: 1, minWidth: 0, marginLeft: isVerySmall ? 0 : 6 }}>
+                <ChiefCharmsSection
+                  side={p.side}
+                  hideHeader
+                  disabled={p.disabled}
+                  value={p.charmLevels as any}
+                  onChange={p.onCharmLevelsChange as any}
+                />
+              </View>
             </View>
-          ))}
-        </View>
-      </CollapsibleSection>
+          </CollapsibleSection>
+
+          {/* Chief Skin Bonuses */}
+          <CollapsibleSection title="Chief Skin Bonuses" defaultOpen={false}>
+            <View style={isVerySmall ? styles.mobileRow : styles.row}>
+              <ChiefSkinSection
+                side={p.side}
+                disabled={p.disabled}
+                value={p.chiefSkinBonuses}
+                onChange={p.onChiefSkinBonusesChange}
+              />
+            </View>
+          </CollapsibleSection>
+
+          {/* Legendary/Mythic Hero Gear */}
+          <CollapsibleSection title="Legendary/Mythic Hero Gear" defaultOpen={false}>
+            <View style={isVerySmall ? styles.mobileRow : styles.row}>
+              <HeroGearSection
+                side={p.side}
+                disabled={p.disabled}
+                value={p.heroGearSelection as any}
+                onChange={p.onHeroGearSelectionChange as any}
+              />
+            </View>
+          </CollapsibleSection>
+
+          {/* Daybreak Island Bonuses */}
+          <CollapsibleSection title="Daybreak Island Bonuses" defaultOpen={false}>
+            <View style={isVerySmall ? styles.mobileRow : styles.row}>
+              <DaybreakSection
+                side={p.side}
+                disabled={p.disabled}
+                value={p.daybreakBonuses}
+                onChange={p.onDaybreakChange}
+              />
+            </View>
+          </CollapsibleSection>
+
+          {/* Research */}
+          <CollapsibleSection title="Battle Research" defaultOpen={false}>
+            <View style={isVerySmall ? styles.mobileRow : styles.row}>
+              <ResearchSection
+                side={p.side}
+                onChange={(b) => p.onResearchBuffsChange && p.onResearchBuffsChange(b)}
+                onSelectionChange={(rows)=> p.onResearchSelectionChange && p.onResearchSelectionChange(rows)}
+                value={p.researchSelection || undefined}
+              />
+            </View>
+          </CollapsibleSection>
+        </>
+      )}
+
+      {/* Removed separate Troop Ratios & Counts section (moved into ClassRow) */}
     </View>
   );
 };

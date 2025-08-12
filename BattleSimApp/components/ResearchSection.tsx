@@ -32,6 +32,8 @@ export const ResearchSection: React.FC<Props> = ({ side, onChange, onSelectionCh
   // keep latest callbacks stable
   const onChangeRef = React.useRef(onChange);
   React.useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+  const valueRef = React.useRef<ResearchSelection | null>(value || null);
+  React.useEffect(() => { valueRef.current = value || null; }, [value]);
 
   const rowsEqual = (a?: ResearchSelection | null, b?: ResearchSelection | null): boolean => {
     if (!a && !b) return true;
@@ -99,27 +101,55 @@ export const ResearchSection: React.FC<Props> = ({ side, onChange, onSelectionCh
     return () => { cancelled = true; };
   }, []);
 
-  // Apply external selection (value)
+  // Apply external selection (value) without causing loops
   const lastAppliedRef = React.useRef<ResearchSelection | null>(null);
   React.useEffect(() => {
-    if (!value || value.length === 0 || cats.length === 0) return;
+    if (!value || value.length === 0) return;
     if (rowsEqual(lastAppliedRef.current, value)) return;
-    const current: ResearchSelection = cats.map((c) => ({
-      category: c.category, selectedTier: c.selectedTier, selectedLevel: c.selectedLevel
-    }));
-    if (rowsEqual(current, value)) return;
-    const next = cats.map((x) => {
-      const row = value.find((r) => r.category === x.category);
-      if (!row) return x;
-      const maxLevelInTier = (x.nodesByTier[row.selectedTier] || []).reduce((mx, n) => Math.max(mx, n.level), 0);
-      const newLevel = Math.min(row.selectedLevel, maxLevelInTier);
-      return { ...x, selectedTier: row.selectedTier, selectedLevel: newLevel };
+    // Only apply when categories have loaded
+    setCats((prev) => {
+      if (prev.length === 0) return prev;
+      const current: ResearchSelection = prev.map((c) => ({ category: c.category, selectedTier: c.selectedTier, selectedLevel: c.selectedLevel }));
+      if (rowsEqual(current, value)) return prev;
+      const next = prev.map((x) => {
+        const row = value.find((r) => r.category === x.category);
+        if (!row) return x;
+        const maxLevelInTier = (x.nodesByTier[row.selectedTier] || []).reduce((mx, n) => Math.max(mx, n.level), 0);
+        const newLevel = Math.min(row.selectedLevel, maxLevelInTier);
+        return { ...x, selectedTier: row.selectedTier, selectedLevel: newLevel };
+      });
+      lastAppliedRef.current = value;
+      return next;
     });
-    lastAppliedRef.current = value;
-    setCats(next);
-  }, [value, cats]);
+  }, [value]);
 
-  // calc buffs
+  // Map a research node's stat into the aggregate buff object
+  const applyNodeStat = React.useCallback((node: ResearchNode, add: (k: keyof ResearchBuffs, v: number) => void) => {
+    const stat = String(node.stat_name || "").toLowerCase();
+    const v = Number(node.value) || 0;
+    if (stat.includes("troop attack") || stat.includes("troops attack")) {
+      add("infantry_attack_pct", v); add("lancer_attack_pct", v); add("marksman_attack_pct", v);
+    } else if (stat.includes("troop defense") || stat.includes("troops defense")) {
+      add("infantry_defense_pct", v); add("lancer_defense_pct", v); add("marksman_defense_pct", v);
+    } else if (stat.includes("troop health") || stat.includes("troops health")) {
+      add("infantry_health_pct", v); add("lancer_health_pct", v); add("marksman_health_pct", v);
+    } else if (stat.includes("troop lethality") || stat.includes("troops lethality")) {
+      add("infantry_lethality_pct", v); add("lancer_lethality_pct", v); add("marksman_lethality_pct", v);
+    } else if (stat.includes("infantry attack")) { add("infantry_attack_pct", v);
+    } else if (stat.includes("infantry defense")) { add("infantry_defense_pct", v);
+    } else if (stat.includes("infantry health")) { add("infantry_health_pct", v);
+    } else if (stat.includes("infantry lethality")) { add("infantry_lethality_pct", v);
+    } else if (stat.includes("lancer attack")) { add("lancer_attack_pct", v);
+    } else if (stat.includes("lancer defense")) { add("lancer_defense_pct", v);
+    } else if (stat.includes("lancer health")) { add("lancer_health_pct", v);
+    } else if (stat.includes("lancer lethality")) { add("lancer_lethality_pct", v);
+    } else if (stat.includes("marksman attack")) { add("marksman_attack_pct", v);
+    } else if (stat.includes("marksman defense")) { add("marksman_defense_pct", v);
+    } else if (stat.includes("marksman health")) { add("marksman_health_pct", v);
+    } else if (stat.includes("marksman lethality")) { add("marksman_lethality_pct", v); }
+  }, []);
+
+  // calc buffs (stack highest level per tier, using the selected level for the selected tier)
   const recalc = React.useCallback(() => {
     const agg: ResearchBuffs = {};
     const add = (k: keyof ResearchBuffs, v: number) => { agg[k] = (agg[k] || 0) + v; };
@@ -129,32 +159,17 @@ export const ResearchSection: React.FC<Props> = ({ side, onChange, onSelectionCh
       const selTierN = tierNum(cs.selectedTier);
       for (const t of cs.tiers) {
         const tN = tierNum(t);
-        for (const node of cs.nodesByTier[t] || []) {
-          if (tN < selTierN || (tN === selTierN && node.level <= cs.selectedLevel)) {
-            const stat = String(node.stat_name || "").toLowerCase();
-            const v = Number(node.value) || 0;
-            if (stat.includes("troop attack") || stat.includes("troops attack")) {
-              add("infantry_attack_pct", v); add("lancer_attack_pct", v); add("marksman_attack_pct", v);
-            } else if (stat.includes("troop defense") || stat.includes("troops defense")) {
-              add("infantry_defense_pct", v); add("lancer_defense_pct", v); add("marksman_defense_pct", v);
-            } else if (stat.includes("troop health") || stat.includes("troops health")) {
-              add("infantry_health_pct", v); add("lancer_health_pct", v); add("marksman_health_pct", v);
-            } else if (stat.includes("troop lethality") || stat.includes("troops lethality")) {
-              add("infantry_lethality_pct", v); add("lancer_lethality_pct", v); add("marksman_lethality_pct", v);
-            } else if (stat.includes("infantry attack")) { add("infantry_attack_pct", v);
-            } else if (stat.includes("infantry defense")) { add("infantry_defense_pct", v);
-            } else if (stat.includes("infantry health")) { add("infantry_health_pct", v);
-            } else if (stat.includes("infantry lethality")) { add("infantry_lethality_pct", v);
-            } else if (stat.includes("lancer attack")) { add("lancer_attack_pct", v);
-            } else if (stat.includes("lancer defense")) { add("lancer_defense_pct", v);
-            } else if (stat.includes("lancer health")) { add("lancer_health_pct", v);
-            } else if (stat.includes("lancer lethality")) { add("lancer_lethality_pct", v);
-            } else if (stat.includes("marksman attack")) { add("marksman_attack_pct", v);
-            } else if (stat.includes("marksman defense")) { add("marksman_defense_pct", v);
-            } else if (stat.includes("marksman health")) { add("marksman_health_pct", v);
-            } else if (stat.includes("marksman lethality")) { add("marksman_lethality_pct", v); }
-          }
+        if (tN > selTierN) continue;
+        const nodes = cs.nodesByTier[t] || [];
+        let chosen: ResearchNode | undefined;
+        if (tN < selTierN) {
+          // pick highest level node in this tier
+          chosen = nodes.reduce((best, n) => (n.level > (best?.level || 0) ? n : best), undefined as any);
+        } else {
+          // selected tier: pick the currently selected level
+          chosen = nodes.find((n) => n.level === cs.selectedLevel);
         }
+        if (chosen) applyNodeStat(chosen, add);
       }
     }
 
@@ -162,14 +177,19 @@ export const ResearchSection: React.FC<Props> = ({ side, onChange, onSelectionCh
     const rowsNow: ResearchSelection = cats.map((c) => ({
       category: c.category, selectedTier: c.selectedTier, selectedLevel: c.selectedLevel
     }));
-    onSelectionChange?.(rowsNow);
+    // Avoid feedback loops: only notify parent if selection actually changed
+    if (!rowsEqual(valueRef.current, rowsNow)) {
+      onSelectionChange?.(rowsNow);
+    }
   }, [cats]);
 
-  React.useEffect(() => { 
+  React.useEffect(() => {
     if (!loading && cats.length > 0) {
-      recalc(); 
+      recalc();
     }
-  }, [loading, cats]); // Removed recalc dependency to prevent infinite loops
+    // Only run when cats array identity changes or loading flips false
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, cats]);
 
   if (loading) {
     return (
@@ -180,18 +200,37 @@ export const ResearchSection: React.FC<Props> = ({ side, onChange, onSelectionCh
     );
   }
 
+  // Total stacked (highest per tier up to selected tier; selected tier uses selected level)
   const totalBuff = (cs: CategoryState) => {
+    if (!cs.selectedTier || !cs.selectedLevel) return 0;
     const selTierN = tierNum(cs.selectedTier);
     let sum = 0;
     for (const t of cs.tiers) {
       const tN = tierNum(t);
-      for (const node of cs.nodesByTier[t] || []) {
-        if (tN < selTierN || (tN === selTierN && node.level <= cs.selectedLevel)) {
-          sum += Number(node.value) || 0;
-        }
+      if (tN > selTierN) continue;
+      const nodes = cs.nodesByTier[t] || [];
+      let chosen: ResearchNode | undefined;
+      if (tN < selTierN) {
+        chosen = nodes.reduce((best, n) => (n.level > (best?.level || 0) ? n : best), undefined as any);
+      } else {
+        chosen = nodes.find((n) => n.level === cs.selectedLevel);
       }
+      if (chosen) sum += Number(chosen.value) || 0;
     }
     return sum;
+  };
+
+  // Derive a readable stat label for a category (use selected node if present, else first node found)
+  const categoryStatLabel = (cs: CategoryState): string => {
+    const selectedNode = (cs.nodesByTier[cs.selectedTier] || []).find((n) => n.level === cs.selectedLevel);
+    let raw = selectedNode?.stat_name;
+    if (!raw) {
+      for (const t of cs.tiers) {
+        const nodes = cs.nodesByTier[t] || [];
+        if (nodes.length > 0) { raw = nodes[0].stat_name; break; }
+      }
+    }
+    return String(raw || "");
   };
 
   return (
@@ -236,8 +275,18 @@ export const ResearchSection: React.FC<Props> = ({ side, onChange, onSelectionCh
             </View>
 
             <View style={styles.totalBar}>
-              <Text style={styles.totalText}>Included nodes: {(c.nodesByTier[c.selectedTier] || []).length}</Text>
-              <Text style={styles.totalText}>Cumulative buff: {totalBuff(c).toFixed(2)}%</Text>
+              {(() => {
+                const selectedNode = (c.nodesByTier[c.selectedTier] || []).find((n) => n.level === c.selectedLevel);
+                const statName = selectedNode?.stat_name || categoryStatLabel(c);
+                const statVal = Number(selectedNode?.value || 0);
+                const stacked = totalBuff(c);
+                return (
+                  <>
+                    <Text style={styles.totalText}>Current Tier: {statName} +{statVal.toFixed(2)}%</Text>
+                    <Text style={styles.totalText}>Total: {statName} +{stacked.toFixed(2)}%</Text>
+                  </>
+                );
+              })()}
             </View>
           </View>
         );

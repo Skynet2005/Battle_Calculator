@@ -16,13 +16,15 @@
     "axios": "^1.10.0",
     "expo": "53.0.20",
     "expo-clipboard": "~7.1.5",
-    "expo-status-bar": "~2.2.3",
     "expo-secure-store": "~14.2.3",
+    "expo-status-bar": "~2.2.3",
     "react": "19.1.1",
     "react-dom": "19.1.1",
     "react-native": "0.79.5",
+    "react-native-svg": "15.3.0",
     "react-native-web": "^0.20.0",
-    "react-native-svg": "15.3.0"
+    "victory": "^37.3.6",
+    "victory-native": "^41.19.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

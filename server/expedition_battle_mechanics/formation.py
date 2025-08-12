@@ -3,9 +3,9 @@
 import re
 from typing import List, Dict, Iterable
 
-from expedition_battle_mechanics.troop import TroopGroup
-from expedition_battle_mechanics.definitions import TroopDefinition
-from expedition_battle_mechanics.hero import Hero
+from .troop import TroopGroup
+from .definitions import TroopDefinition
+from .hero import Hero
 
 class RallyFormation:
     """Represents a solo march or rally leader formation.
@@ -108,3 +108,6 @@ class RallyFormation:
             health=tdict["Health"],
             stat_bonuses=tdict["StatBonuses"]
         )
+
+# Alias for backward compatibility
+Formation = RallyFormation

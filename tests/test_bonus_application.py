@@ -168,7 +168,7 @@ def test_special_bonus_formula_matches_wiki():
     state = CombatState(rpt)
 
     random.seed(0)
-    dmg = state._compute_side_damage(
+    dmg, _by_cls, _extra = state._compute_side_damage(
         state.attacker_groups,
         state.defender_groups,
         state.attacker_bonus,

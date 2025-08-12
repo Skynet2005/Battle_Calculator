@@ -19,3 +19,8 @@ declare module '@react-native-community/slider' {
 }
 
 
+// Victory Native type shim: map to 'victory' exports so TS recognizes components
+declare module 'victory-native' {
+  export * from 'victory';
+}
+

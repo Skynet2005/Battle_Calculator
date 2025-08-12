@@ -2,7 +2,9 @@
 
 from fastapi import FastAPI, HTTPException, Query, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, validator, Field
+from pydantic import BaseModel, Field
+from pydantic import field_validator
+from contextlib import asynccontextmanager
 from typing import List, Dict, Any, Optional, Tuple
 import os
 from dotenv import load_dotenv, find_dotenv
@@ -50,34 +52,65 @@ except ImportError:  # fallback when launched as "uvicorn main:app" inside serve
     from auth import hash_password, verify_password, create_access_token, decode_token  # type: ignore
 
 # raw data
-from hero_data.hero_loader import HEROES as RAW_HEROES
-from troop_data.troop_definitions import TROOP_DEFINITIONS
+try:
+    from .hero_data.hero_loader import HEROES as RAW_HEROES
+    from .troop_data.troop_definitions import TROOP_DEFINITIONS
+except ImportError:  # fallback when launched from repo root / tests
+    from hero_data.hero_loader import HEROES as RAW_HEROES  # type: ignore
+    from troop_data.troop_definitions import TROOP_DEFINITIONS  # type: ignore
 
 # import your updated expedition simulation
-from expedition_battle_mechanics.simulation import (
-    simulate_battle,
-    monte_carlo_battle,
-    simulate_battle_weighted,
-    monte_carlo_battle_weighted,
-)
+try:
+    from .expedition_battle_mechanics.simulation import (
+        simulate_battle,
+        monte_carlo_battle,
+        simulate_battle_weighted,
+        monte_carlo_battle_weighted,
+    )
+except ImportError:  # fallback when run as a module from repo root
+    from expedition_battle_mechanics.simulation import (  # type: ignore
+        simulate_battle,
+        monte_carlo_battle,
+        simulate_battle_weighted,
+        monte_carlo_battle_weighted,
+    )
 
 # expedition engine
-from expedition_battle_mechanics.loader       import hero_from_dict
-from expedition_battle_mechanics.combat_state import BattleReportInput
-from expedition_battle_mechanics.formation    import RallyFormation
-from expedition_battle_mechanics.bonus        import BonusSource
+try:
+    from .expedition_battle_mechanics.loader       import hero_from_dict
+    from .expedition_battle_mechanics.combat_state import BattleReportInput
+    from .expedition_battle_mechanics.formation    import RallyFormation
+    from .expedition_battle_mechanics.bonus        import BonusSource
+except ImportError:
+    from expedition_battle_mechanics.loader       import hero_from_dict  # type: ignore
+    from expedition_battle_mechanics.combat_state import BattleReportInput  # type: ignore
+    from expedition_battle_mechanics.formation    import RallyFormation  # type: ignore
+    from expedition_battle_mechanics.bonus        import BonusSource  # type: ignore
 # chief gear & charms data
-from chief_gear import CHIEF_GEAR_DATA as chief_gear_data
-from chief_charms import CHIEF_CHARMS_DATA as chief_charms_data
+try:
+    from .chief_gear import CHIEF_GEAR_DATA as chief_gear_data
+    from .chief_charms import CHIEF_CHARMS_DATA as chief_charms_data
+except ImportError:
+    from chief_gear import CHIEF_GEAR_DATA as chief_gear_data  # type: ignore
+    from chief_charms import CHIEF_CHARMS_DATA as chief_charms_data  # type: ignore
 
 # research data
-from research import (
+try:
+    from .research import (
+        get_category_names as research_get_category_names,
+        get_tier_labels as research_get_tier_labels,
+        get_nodes as research_get_nodes,
+        find_stat as research_find_stat,
+        flatten as research_flatten,
+    )
+except ImportError:
+    from research import (  # type: ignore
     get_category_names as research_get_category_names,
     get_tier_labels as research_get_tier_labels,
     get_nodes as research_get_nodes,
     find_stat as research_find_stat,
     flatten as research_flatten,
-)
+    )
 
 # Legendary/Mythic hero gear calculators
 try:
@@ -109,25 +142,23 @@ except ImportError:  # fallback when launched as script
 
 
 # -----------------------------
-# App + CORS
+# App lifespan + CORS
 # -----------------------------
 load_dotenv(find_dotenv())
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # ensure SQLite tables exist on app startup
+    init_db()
+    yield
+
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-# -----------------------------
-# Startup
-# -----------------------------
-@app.on_event("startup")
-def _on_startup():
-    # Created Logic for review: ensure SQLite tables exist on app startup
-    init_db()
 
 
 # -----------------------------
@@ -227,14 +258,14 @@ class SimRequest(BaseModel):
     attackerDaybreakBonuses: Optional[Dict[str, float]] = None
     defenderDaybreakBonuses: Optional[Dict[str, float]] = None
 
-    @validator("attackerRatios", "defenderRatios")
+    @field_validator("attackerRatios", "defenderRatios")
     def check_ratios_sum(cls, v):
         total = sum(v.get(c, 0) for c in ("Infantry","Lancer","Marksman"))
         if abs(total - 1.0) > 1e-6:
             raise ValueError(f"ratios must sum to 1.0 (got {total})")
         return v
 
-    @validator("attackerTroops", "defenderTroops")
+    @field_validator("attackerTroops", "defenderTroops")
     def check_all_classes_present(cls, v):
         missing = [c for c in ("Infantry","Lancer","Marksman") if c not in v or not v[c]]
         if missing:
@@ -480,15 +511,14 @@ def _mk_city_buffs(
 
     # Daybreak Island bonuses
     if daybreak:
-        ia = float(daybreak.get("infantry_attack_pct", 0.0)) / 100.0
-        if ia:
-            city["infantry_attack"] = city.get("infantry_attack", 0.0) + ia
-        idf = float(daybreak.get("infantry_defense_pct", 0.0)) / 100.0
-        if idf:
-            city["infantry_defense"] = city.get("infantry_defense", 0.0) + idf
-        ma = float(daybreak.get("marksman_attack_pct", 0.0)) / 100.0
-        if ma:
-            city["marksman_attack"] = city.get("marksman_attack", 0.0) + ma
+        # class-specific entries for all three classes and both stats
+        for cls in ("infantry", "lancer", "marksman"):
+            atk = float(daybreak.get(f"{cls}_attack_pct", 0.0)) / 100.0
+            if atk:
+                city[f"{cls}_attack"] = city.get(f"{cls}_attack", 0.0) + atk
+            df = float(daybreak.get(f"{cls}_defense_pct", 0.0)) / 100.0
+            if df:
+                city[f"{cls}_defense"] = city.get(f"{cls}_defense", 0.0) + df
         for stat_key, targets in (
             ("troops_attack_pct", ("infantry_attack","lancer_attack","marksman_attack")),
             ("troops_defense_pct", ("infantry_defense","lancer_defense","marksman_defense")),
@@ -853,9 +883,9 @@ def run_simulation(req: SimRequest):
 
     # Run sim
     if req.sims <= 1:
-        out = simulate_battle(rpt, use_power_weighting=False)
+        out = simulate_battle(rpt)
     else:
-        out = monte_carlo_battle(rpt, n_sims=req.sims, use_power_weighting=False)
+        out = monte_carlo_battle(rpt, n_sims=req.sims)
 
     # Include gear percentages in result JSON for UI display/copy
     try:
@@ -866,6 +896,18 @@ def run_simulation(req: SimRequest):
         base["defenderCharms"] = req.defenderCharms or {}
         base["attackerHeroGear"] = req.attackerHeroGear or {}
         base["defenderHeroGear"] = req.defenderHeroGear or {}
+        # Created Logic for review: expose merged city buffs actually used (percent units)
+        base["city_buffs"] = {
+            "attacker": {k: round(v * 100.0, 4) for k, v in (atk_city_buffs or {}).items()},
+            "defender": {k: round(v * 100.0, 4) for k, v in (def_city_buffs or {}).items()},
+        }
+        # Also echo other sources explicitly for clarity
+        base["attackerChiefSkinBonuses"] = req.attackerChiefSkinBonuses or {}
+        base["defenderChiefSkinBonuses"] = req.defenderChiefSkinBonuses or {}
+        base["attackerDaybreakBonuses"] = req.attackerDaybreakBonuses or {}
+        base["defenderDaybreakBonuses"] = req.defenderDaybreakBonuses or {}
+        base["attackerResearch"] = req.attackerResearch or {}
+        base["defenderResearch"] = req.defenderResearch or {}
     except Exception:
         pass
 

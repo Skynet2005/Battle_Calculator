@@ -24,6 +24,10 @@ interface Props {
   onEwLevelChange: (cls: Class, level: string) => void;
   onRatioChange: (cls: Class, ratio: string) => void;
 
+  /* counts */
+  count: string;
+  onCountChange: (cls: Class, count: string) => void;
+
   /* gear */
   gearSel: HeroGearClassSelection;
   onGearChange: HeroGearChangeHandler;
@@ -132,6 +136,19 @@ export function ClassRow(p: Props) {
             <Text style={styles.pillText}>{Math.round((parseFloat(p.ratio || "0") || 0) * 100)}%</Text>
           </View>
         </View>
+      </View>
+
+      {/* Count */}
+      <View style={styles.row}>
+        <Text style={styles.label}>Troop Count</Text>
+        <TextInput
+          value={p.count}
+          onChangeText={(v) => p.onCountChange(p.cls, v.replace(/[^0-9]/g, ""))}
+          keyboardType="number-pad"
+          style={isVerySmall ? styles.mobileInput : styles.input}
+          placeholder="0"
+          placeholderTextColor="#7B8794"
+        />
       </View>
     </View>
   );

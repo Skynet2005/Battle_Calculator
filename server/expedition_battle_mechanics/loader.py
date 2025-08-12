@@ -11,11 +11,14 @@ from __future__ import annotations
 
 from typing import Dict, Any, Optional, List, Union
 
-from expedition_battle_mechanics.definitions import Skill, ExclusiveWeapon
-from expedition_battle_mechanics.hero import Hero
+from .definitions import Skill, ExclusiveWeapon
+from .hero import Hero
 
 # raw data registry
-from hero_data.hero_loader import HEROES
+try:
+    from ..hero_data.hero_loader import HEROES
+except ImportError:  # fallback when imported outside package context
+    from hero_data.hero_loader import HEROES  # type: ignore
 
 
 # ─────────────────────────────────────────────────────────────────────────────

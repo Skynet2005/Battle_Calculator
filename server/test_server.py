@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import uvicorn
-from main import app
+from .main import app
 
 if __name__ == "__main__":
     print("Starting test server...")

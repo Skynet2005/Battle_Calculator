@@ -14,8 +14,8 @@ type Props = {
 
 const defaultPiece = (type: "Infantry" | "Lancer" | "Marksman"): HeroGearPieceSelection => ({
   type,
-  level: 0,
-  essence_level: 0,
+  level: 200,
+  essence_level: 20,
 });
 
 const emptySelection: HeroGearSelectionByClass = {
@@ -70,7 +70,7 @@ export const HeroGearSection: React.FC<Props> = ({ side, disabled, value, onChan
       <Text style={[styles.subHeader, sideLabelStyle]}>Hero Gear{onlyClass ? ` — ${onlyClass}` : ""}</Text>
 
       {(((onlyClass ? [onlyClass] : ["Infantry","Lancer","Marksman"]) as unknown) as ("Infantry"|"Lancer"|"Marksman")[]).map((cls) => (
-        <View key={`${side}-gear-${cls}`} style={styles.row}>
+        <View key={`${side}-gear-${cls}`}>
           <Text style={[styles.label, sideLabelStyle]}>{cls}</Text>
           {(Object.keys(sel[cls]) as (keyof HeroGearClassSelection)[]).map((piece) => (
             <View key={`${side}-${cls}-${piece}`} style={[styles.card]}>

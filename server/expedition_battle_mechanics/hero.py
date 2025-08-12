@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
-from expedition_battle_mechanics.definitions import Skill, ExclusiveWeapon
+from .definitions import Skill, ExclusiveWeapon
 
 
 @dataclass(slots=True)

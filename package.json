@@ -15,11 +15,11 @@
     "prisma:studio": "prisma studio"
   },
   "devDependencies": {
-    "prisma": "^5.17.0",
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "prisma": "^5.17.0"
   },
   "dependencies": {
-    "@prisma/client": "^5.17.0"
+    "@prisma/client": "^5.17.0",
+    "react-native-svg": "^15.12.1"
   }
 }
-

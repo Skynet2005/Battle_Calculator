@@ -4,8 +4,8 @@ FULL FILE, nothing abbreviated.
 """
 
 from typing import Dict, Callable, Any
-from expedition_battle_mechanics.hero import Hero
-from expedition_battle_mechanics.troop import TroopGroup
+from .hero import Hero
+from .troop import TroopGroup
 
 Handler = Callable[[Any, Hero, int], None]      # state, hero, lvl
 
@@ -23,10 +23,10 @@ def armor_of_barnacles(state: Any, hero: Hero, lvl: int) -> None:
 def dragons_heir(state: Any, hero: Hero, lvl: int) -> None:
     if state.turn % 3:
         return
-    base = hero.get_stat("attack") * hero.skills_pct("Dragon's Heir", lvl)
-    for tg in state.get_enemy_groups(hero):
-        extra = base * tg.count
-        state.add_extra_damage(hero.side, extra)
+    # Created Logic for review: Model Dragon's Heir as class damage% for this turn (not flat true damage)
+    pct = hero.skills_pct("Dragon's Heir", lvl)
+    # Hendrik is a Marksman; apply as Marksman-damage for this side for 1 full turn
+    state.add_temp_bonus(hero.side, "Marksman-damage", pct, 1)
     state._proc("Dragon's Heir", hero.side)
 
 # --------------------------------------------------------------------------- #
@@ -53,10 +53,43 @@ def toxic_release(state: Any, hero: Hero, lvl: int) -> None:
     state.add_temp_bonus(enemy_side, "Marksman-attack", -marks_red, 2)
     state._proc("Toxic Release", hero.side)
 
+# --------------------------------------------------------------------------- #
+# Renee – one-turn Dream Mark cycle
+def nightmare_trace(state: Any, hero: Hero, lvl: int) -> None:
+    # Every 2 turns, mark; effect triggers the next turn and lasts 1 turn.
+    # With turn starting at 0, apply effect on odd turns (1, 3, ...).
+    if state.turn % 2 == 1:
+        pct = hero.skills_pct("Nightmare Trace", lvl)
+        state.add_temp_bonus(hero.side, "Lancer-damage", pct, 1)
+        state._proc("Nightmare Trace", hero.side)
+
+
+def dreamcatcher(state: Any, hero: Hero, lvl: int) -> None:
+    # Applies only when Dream Marks are active (same effect turn)
+    if state.turn % 2 == 1:
+        pct = hero.skills_pct("Dreamcatcher", lvl)
+        state.add_temp_bonus(hero.side, "Lancer-damage", pct, 1)
+        state._proc("Dreamcatcher", hero.side)
+
+
+def dreamslice(state: Any, hero: Hero, lvl: int) -> None:
+    # Applies only when Dream Marks are active (same effect turn)
+    if state.turn % 2 == 1:
+        pct = hero.skills_pct("Dreamslice", lvl)
+        state.add_temp_bonus(hero.side, "damage", pct, 1)
+        state._proc("Dreamslice", hero.side)
+
 # ─────────────────────────────────────────────────────────────────────────────
 ON_TURN: Dict[str, Handler] = {
     "Armor of Barnacles": armor_of_barnacles,
     "Dragon's Heir":      dragons_heir,
     "Chemical Terror":    chemical_terror,
     "Toxic Release":      toxic_release,
+    # Renee – mark/effect cycle
+    "Nightmare Trace":    nightmare_trace,
+    "Dreamcatcher":       dreamcatcher,
+    "Dreamslice":         dreamslice,
 }
+
+# Alias for backward compatibility
+ON_TURN_SKILLS = ON_TURN

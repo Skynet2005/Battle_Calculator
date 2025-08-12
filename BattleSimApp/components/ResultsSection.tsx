@@ -1,10 +1,12 @@
 import * as Clipboard from "expo-clipboard";
 import React from "react";
-import { Alert, ScrollView, Text, TouchableOpacity, View, Platform } from "react-native";
+import { Alert, Text, TouchableOpacity, View, Platform, TextInput, useWindowDimensions } from "react-native";
 import axios from "axios";
+import * as SecureStore from "expo-secure-store";
 
 import { styles } from "../styles";
 import { SideDetails, SimResult } from "../types";
+import { TurnChart, CombinedTurnChart } from "../components/TurnChart";
 
 /* ────────────────────────────────────────────────────────────── */
 
@@ -33,10 +35,12 @@ type Props = {
 
 export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
   if (!result) return null;
+  const { width } = useWindowDimensions();
+  const chartsInRow = Platform.OS === "web" && width >= 1024;
 
   const detail: SimResult = (result as any).sample_battle ?? result;
-
   const procStats = (detail as any).proc_stats ?? { attacker: {}, defender: {} };
+  const timeline = (detail as any).timeline || (detail as any).turn_timeline || [];
 
   const flattenPassives = (p: any): string[] =>
     p ? ([] as string[]).concat(...(Object.values(p) as string[][])) : [];
@@ -86,31 +90,31 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
 
   Object.entries(procStats.attacker || {}).forEach(([skill, clsMap]) => {
     Object.entries(clsMap as Record<string, number>).forEach(([cls, count]) => {
-      if (troopSkillSet.has(skill)) {
+      if (troopSkillSet.has(skill as string)) {
         if (cls === "All") {
-          (troopProcsAtk as any).infantry.push([skill, count]);
-          (troopProcsAtk as any).lancer.push([skill, count]);
-          (troopProcsAtk as any).marksman.push([skill, count]);
+          (troopProcsAtk as any).infantry.push([skill as string, count as number]);
+          (troopProcsAtk as any).lancer.push([skill as string, count as number]);
+          (troopProcsAtk as any).marksman.push([skill as string, count as number]);
         } else if (cls !== "All") {
-          (troopProcsAtk as any)[cls.toLowerCase()].push([skill, count]);
+          (troopProcsAtk as any)[cls.toLowerCase()].push([skill as string, count as number]);
         }
       } else {
-        heroProcsAtk.push([skill, count]);
+        heroProcsAtk.push([skill as string, count as number]);
       }
     });
   });
   Object.entries(procStats.defender || {}).forEach(([skill, clsMap]) => {
     Object.entries(clsMap as Record<string, number>).forEach(([cls, count]) => {
-      if (troopSkillSet.has(skill)) {
+      if (troopSkillSet.has(skill as string)) {
         if (cls === "All") {
-          (troopProcsDef as any).infantry.push([skill, count]);
-          (troopProcsDef as any).lancer.push([skill, count]);
-          (troopProcsDef as any).marksman.push([skill, count]);
+          (troopProcsDef as any).infantry.push([skill as string, count as number]);
+          (troopProcsDef as any).lancer.push([skill as string, count as number]);
+          (troopProcsDef as any).marksman.push([skill as string, count as number]);
         } else if (cls !== "All") {
-          (troopProcsDef as any)[cls.toLowerCase()].push([skill, count]);
+          (troopProcsDef as any)[cls.toLowerCase()].push([skill as string, count as number]);
         }
       } else {
-        heroProcsDef.push([skill, count]);
+        heroProcsDef.push([skill as string, count as number]);
       }
     });
   });
@@ -135,23 +139,80 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
     Clipboard.setStringAsync(JSON.stringify(detail, null, 2));
     Alert.alert("Copied", "All results copied to clipboard.");
   };
-  
+
   const copyJson = () => {
     Clipboard.setStringAsync(JSON.stringify(detail, null, 2));
     Alert.alert("Copied", "JSON results copied to clipboard.");
   };
-  
-  const copyFormatted = () => {
-    const formatted = formatBattleResults(detail);
-    Clipboard.setStringAsync(formatted);
-    Alert.alert("Copied", "Formatted results copied to clipboard.");
-  };
+
   const [aiText, setAiText] = React.useState<string | null>(null);
   const [aiBusy, setAiBusy] = React.useState(false);
+  const [apiKey, setApiKey] = React.useState<string>("");
+  const [savingKey, setSavingKey] = React.useState(false);
+  const [keySavedAt, setKeySavedAt] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    let mounted = true;
+    const loadKey = async () => {
+      try {
+        if (Platform.OS === "web") {
+          const k = (globalThis as any)?.localStorage?.getItem("OPENAI_API_KEY") || "";
+          if (mounted) setApiKey(k);
+        } else {
+          const k = (await SecureStore.getItemAsync("OPENAI_API_KEY")) || "";
+          if (mounted) setApiKey(k);
+        }
+      } catch {}
+    };
+    loadKey();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const saveApiKey = async () => {
+    const trimmed = (apiKey || "").trim();
+    setSavingKey(true);
+    try {
+      if (Platform.OS === "web") {
+        (globalThis as any)?.localStorage?.setItem("OPENAI_API_KEY", trimmed);
+      } else {
+        await SecureStore.setItemAsync("OPENAI_API_KEY", trimmed);
+      }
+      setKeySavedAt(Date.now());
+      Alert.alert("Saved", "OpenAI API key saved locally on this device.");
+    } catch (e: any) {
+      Alert.alert("Save Error", String(e?.message || e));
+    } finally {
+      setSavingKey(false);
+    }
+  };
+
+  const clearApiKey = async () => {
+    setSavingKey(true);
+    try {
+      if (Platform.OS === "web") {
+        (globalThis as any)?.localStorage?.removeItem("OPENAI_API_KEY");
+      } else {
+        await SecureStore.deleteItemAsync("OPENAI_API_KEY");
+      }
+      setApiKey("");
+      setKeySavedAt(Date.now());
+      Alert.alert("Cleared", "OpenAI API key removed from this device.");
+    } catch (e: any) {
+      Alert.alert("Clear Error", String(e?.message || e));
+    } finally {
+      setSavingKey(false);
+    }
+  };
+
   const sendToAi = async () => {
     try {
       setAiBusy(true);
-      const resp = await axios.post("http://localhost:8000/api/analyze", { result });
+      const payload: any = { result };
+      const k = (apiKey || "").trim();
+      if (k.length > 0) payload.openai_api_key = k;
+      const resp = await axios.post("http://localhost:8000/api/analyze", payload);
       setAiText(resp.data?.analysis || "No analysis returned.");
     } catch (e: any) {
       Alert.alert("Analysis Error", String(e.response?.data ?? e.message));
@@ -168,8 +229,8 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
     bonuses: false,
   });
   const sortAndLimit = (arr: [string, number][], topN = 10) => arr.slice().sort((a, b) => b[1] - a[1]).slice(0, topN);
-  const heroLimit = 12; // show top hero procs
-  const troopLimit = 8; // show top troop skills per class
+  const heroLimit = 12;
+  const troopLimit = 8;
 
   // Format battle results in a readable way
   const formatBattleResults = (res: SimResult) => {
@@ -177,7 +238,7 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
     const detailAny: any = res as any;
     const atk: any = detailAny.attacker || {};
     const def: any = detailAny.defender || {};
-    const p = res.power as any;
+    const p = (res as any).power as any;
 
     const pctStr = (v: any) => `${Number(v || 0).toFixed(1)}%`;
 
@@ -232,6 +293,7 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
           <Text style={styles.buttonText}>Re-Run Battle</Text>
         </TouchableOpacity>
       </View>
+
       <View style={[styles.actionsRow, { marginBottom: 16 }]}>
         <View style={{ flex: 1, marginRight: 8 }}>
           <TouchableOpacity
@@ -251,72 +313,81 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
         </View>
         <View style={{ flex: 1 }}>
           <TouchableOpacity
-            onPress={copyFormatted}
+            onPress={() => {
+              Clipboard.setStringAsync(formatBattleResults(detail));
+              Alert.alert("Copied", "Formatted results copied to clipboard.");
+            }}
             style={[styles.buttonContainer, { backgroundColor: "#DC2626" }]}
           >
             <Text style={styles.buttonText}>Copy Formatted</Text>
           </TouchableOpacity>
         </View>
       </View>
-      {/* segmented control removed for now to minimize styles dependency */}
 
       {(result as any).attacker_win_rate !== undefined && (
         <View style={{ marginBottom: 16 }}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.subHeader}>Simulation Summary</Text>
-            <TouchableOpacity style={styles.sectionToggleBtn} onPress={() => setCollapsed((c) => ({ ...c, summary: !c.summary }))}>
+            <TouchableOpacity
+              style={styles.sectionToggleBtn}
+              onPress={() => setCollapsed((c) => ({ ...c, summary: !c.summary }))}
+            >
               <Text style={styles.sectionToggleText}>{collapsed.summary ? "Expand" : "Collapse"}</Text>
             </TouchableOpacity>
           </View>
           {!collapsed.summary && (
-          <View style={styles.tableContainer}>
-            {/* Wide layout */}
-            <View style={[styles.tableHeaderRow, { display: Platform.OS === 'web' ? 'flex' : 'none' }]}>
-              <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Metric</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Value</Text>
+            <View style={styles.tableContainer}>
+              {/* Wide layout */}
+              <View style={[styles.tableHeaderRow, { display: Platform.OS === "web" ? "flex" : "none" }]}>
+                <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Metric</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Value</Text>
+              </View>
+              <View style={[styles.tableRow, { display: Platform.OS === "web" ? "flex" : "none" }]}>
+                <Text style={[styles.tableCell, { flex: 2 }]}>Attacker Win Rate</Text>
+                <Text style={[styles.tableCell, { flex: 1 }]}>
+                  {(((result as any).attacker_win_rate ?? 0) * 100).toFixed(1)}%
+                </Text>
+              </View>
+              <View style={[styles.tableRow, { display: Platform.OS === "web" ? "flex" : "none" }]}>
+                <Text style={[styles.tableCell, { flex: 2 }]}>Defender Win Rate</Text>
+                <Text style={[styles.tableCell, { flex: 1 }]}>
+                  {(((result as any).defender_win_rate ?? 0) * 100).toFixed(1)}%
+                </Text>
+              </View>
+              <View style={[styles.tableRow, { display: Platform.OS === "web" ? "flex" : "none" }]}>
+                <Text style={[styles.tableCell, { flex: 2 }]}>Avg Attacker Survivors</Text>
+                <Text style={[styles.tableCell, { flex: 1 }]}>
+                  {Math.round((result as any).avg_attacker_survivors ?? 0)}
+                </Text>
+              </View>
+              <View style={[styles.tableRow, { display: Platform.OS === "web" ? "flex" : "none" }]}>
+                <Text style={[styles.tableCell, { flex: 2 }]}>Avg Defender Survivors</Text>
+                <Text style={[styles.tableCell, { flex: 1 }]}>
+                  {Math.round((result as any).avg_defender_survivors ?? 0)}
+                </Text>
+              </View>
+              {/* Stacked layout for small screens */}
+              <View style={[styles.stackRow, { display: Platform.OS === "web" ? "none" : "flex" }]}>
+                <Text style={styles.stackLabel}>Attacker Win Rate</Text>
+                <Text style={styles.stackValue}>
+                  {(((result as any).attacker_win_rate ?? 0) * 100).toFixed(1)}%
+                </Text>
+              </View>
+              <View style={[styles.stackRow, { display: Platform.OS === "web" ? "none" : "flex" }]}>
+                <Text style={styles.stackLabel}>Defender Win Rate</Text>
+                <Text style={styles.stackValue}>
+                  {(((result as any).defender_win_rate ?? 0) * 100).toFixed(1)}%
+                </Text>
+              </View>
+              <View style={[styles.stackRow, { display: Platform.OS === "web" ? "none" : "flex" }]}>
+                <Text style={styles.stackLabel}>Avg Attacker Survivors</Text>
+                <Text style={styles.stackValue}>{Math.round((result as any).avg_attacker_survivors ?? 0)}</Text>
+              </View>
+              <View style={[styles.stackRow, { display: Platform.OS === "web" ? "none" : "flex" }]}>
+                <Text style={styles.stackLabel}>Avg Defender Survivors</Text>
+                <Text style={styles.stackValue}>{Math.round((result as any).avg_defender_survivors ?? 0)}</Text>
+              </View>
             </View>
-            <View style={[styles.tableRow, { display: Platform.OS === 'web' ? 'flex' : 'none' }]}>
-              <Text style={[styles.tableCell, { flex: 2 }]}>Attacker Win Rate</Text>
-              <Text style={[styles.tableCell, { flex: 1 }]}>
-                {(((result as any).attacker_win_rate ?? 0) * 100).toFixed(1)}%
-              </Text>
-            </View>
-            <View style={[styles.tableRow, { display: Platform.OS === 'web' ? 'flex' : 'none' }]}>
-              <Text style={[styles.tableCell, { flex: 2 }]}>Defender Win Rate</Text>
-              <Text style={[styles.tableCell, { flex: 1 }]}>
-                {(((result as any).defender_win_rate ?? 0) * 100).toFixed(1)}%
-              </Text>
-            </View>
-            <View style={[styles.tableRow, { display: Platform.OS === 'web' ? 'flex' : 'none' }]}>
-              <Text style={[styles.tableCell, { flex: 2 }]}>Avg Attacker Survivors</Text>
-              <Text style={[styles.tableCell, { flex: 1 }]}>
-                {Math.round((result as any).avg_attacker_survivors ?? 0)}
-              </Text>
-            </View>
-            <View style={[styles.tableRow, { display: Platform.OS === 'web' ? 'flex' : 'none' }]}>
-              <Text style={[styles.tableCell, { flex: 2 }]}>Avg Defender Survivors</Text>
-              <Text style={[styles.tableCell, { flex: 1 }]}>
-                {Math.round((result as any).avg_defender_survivors ?? 0)}
-              </Text>
-            </View>
-            {/* Stacked layout for small screens */}
-            <View style={[styles.stackRow, { display: Platform.OS === 'web' ? 'none' : 'flex' }]}>
-              <Text style={styles.stackLabel}>Attacker Win Rate</Text>
-              <Text style={styles.stackValue}>{(((result as any).attacker_win_rate ?? 0) * 100).toFixed(1)}%</Text>
-            </View>
-            <View style={[styles.stackRow, { display: Platform.OS === 'web' ? 'none' : 'flex' }]}>
-              <Text style={styles.stackLabel}>Defender Win Rate</Text>
-              <Text style={styles.stackValue}>{(((result as any).defender_win_rate ?? 0) * 100).toFixed(1)}%</Text>
-            </View>
-            <View style={[styles.stackRow, { display: Platform.OS === 'web' ? 'none' : 'flex' }]}>
-              <Text style={styles.stackLabel}>Avg Attacker Survivors</Text>
-              <Text style={styles.stackValue}>{Math.round((result as any).avg_attacker_survivors ?? 0)}</Text>
-            </View>
-            <View style={[styles.stackRow, { display: Platform.OS === 'web' ? 'none' : 'flex' }]}>
-              <Text style={styles.stackLabel}>Avg Defender Survivors</Text>
-              <Text style={styles.stackValue}>{Math.round((result as any).avg_defender_survivors ?? 0)}</Text>
-            </View>
-          </View>
           )}
         </View>
       )}
@@ -325,48 +396,78 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
         <View style={{ marginBottom: 16 }}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.subHeader}>Power & Damage</Text>
-            <TouchableOpacity style={styles.sectionToggleBtn} onPress={() => setCollapsed((c) => ({ ...c, power: !c.power }))}>
+            <TouchableOpacity
+              style={styles.sectionToggleBtn}
+              onPress={() => setCollapsed((c) => ({ ...c, power: !c.power }))}
+            >
               <Text style={styles.sectionToggleText}>{collapsed.power ? "Expand" : "Collapse"}</Text>
             </TouchableOpacity>
           </View>
           {!collapsed.power && (
-          <View style={styles.tableContainer}>
-            {/* Wide layout */}
-            <View style={[styles.tableHeaderRow, { display: Platform.OS === 'web' ? 'flex' : 'none' }]}>
-              <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Metric</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Attacker</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Defender</Text>
-            </View>
-            {[
-              { label: 'Start Power', a: (detail as any).power.attacker.start, d: (detail as any).power.defender.start },
-              { label: 'End Power', a: (detail as any).power.attacker.end, d: (detail as any).power.defender.end },
-              { label: 'Damage Dealt', a: (detail as any).power.attacker.dealt, d: (detail as any).power.defender.dealt },
-              { label: 'Power Diff Start', a: (detail as any).power.difference.start, d: '' },
-              { label: 'Power Diff End', a: (detail as any).power.difference.end, d: '' },
-            ].map((row, idx) => (
-              <View key={idx}>
-                <View style={[styles.tableRow, { display: Platform.OS === 'web' ? 'flex' : 'none' }]}>
-                  <Text style={[styles.tableCell, { flex: 2 }]}>{row.label}</Text>
-                  <Text style={[styles.tableCell, { flex: 1 }]}>{row.a}</Text>
-                  <Text style={[styles.tableCell, { flex: 1 }]}>{row.d}</Text>
-                </View>
-                <View style={[styles.stackRow, { display: Platform.OS === 'web' ? 'none' : 'flex' }]}>
-                  <Text style={styles.stackLabel}>{row.label}</Text>
-                  <Text style={styles.stackValue}>Attacker: {row.a}</Text>
-                  {String(row.d).length > 0 && <Text style={styles.stackValue}>Defender: {row.d}</Text>}
-                </View>
+            <View style={styles.tableContainer}>
+              <View style={[styles.tableHeaderRow, { display: Platform.OS === "web" ? "flex" : "none" }]}>
+                <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Metric</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Attacker</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Defender</Text>
               </View>
-            ))}
-          </View>
+              {[
+                { label: "Start Power", a: (detail as any).power.attacker.start, d: (detail as any).power.defender.start },
+                { label: "End Power", a: (detail as any).power.attacker.end, d: (detail as any).power.defender.end },
+                { label: "Damage Dealt", a: (detail as any).power.attacker.dealt, d: (detail as any).power.defender.dealt },
+                { label: "Power Diff Start", a: (detail as any).power.difference.start, d: "" },
+                { label: "Power Diff End", a: (detail as any).power.difference.end, d: "" },
+              ].map((row, idx) => (
+                <View key={idx}>
+                  <View style={[styles.tableRow, { display: Platform.OS === "web" ? "flex" : "none" }]}>
+                    <Text style={[styles.tableCell, { flex: 2 }]}>{row.label}</Text>
+                    <Text style={[styles.tableCell, { flex: 1 }]}>{row.a}</Text>
+                    <Text style={[styles.tableCell, { flex: 1 }]}>{row.d}</Text>
+                  </View>
+                  <View style={[styles.stackRow, { display: Platform.OS === "web" ? "none" : "flex" }]}>
+                    <Text style={styles.stackLabel}>{row.label}</Text>
+                    <Text style={styles.stackValue}>Attacker: {row.a}</Text>
+                    {String(row.d).length > 0 && <Text style={styles.stackValue}>Defender: {row.d}</Text>}
+                  </View>
+                </View>
+              ))}
+            </View>
           )}
         </View>
       )}
 
-      <View style={[{ flexDirection: "row", width: "100%" }, Platform.OS === 'web' ? {} : {}]}>
+      {/* Turn timeline charts */}
+      {timeline.length > 0 && (
+        <View style={{ marginBottom: 16 }}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.subHeader}>Turn Timeline</Text>
+          </View>
+          <View style={{ flexDirection: chartsInRow ? "row" : "column", width: "100%" }}>
+            <View style={{ flex: 1, minWidth: 0, marginRight: chartsInRow ? 12 : 0, marginBottom: chartsInRow ? 0 : 8 }}>
+              <Text style={[styles.resultHeader, styles.attackerLabel]}>Attacker – Damage by Turn</Text>
+              <TurnChart timeline={timeline as any} side="attacker" showClasses height={chartsInRow ? 260 : 320} />
+            </View>
+
+            <View style={{ flex: 1, minWidth: 0, marginRight: chartsInRow ? 12 : 0, marginBottom: chartsInRow ? 0 : 8 }}>
+              <Text style={[styles.resultHeader, styles.defenderLabel]}>Defender – Damage by Turn</Text>
+              <TurnChart timeline={timeline as any} side="defender" showClasses height={chartsInRow ? 260 : 320} />
+            </View>
+
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={[styles.resultHeader]}>Combined – Attacker vs Defender</Text>
+              <CombinedTurnChart timeline={timeline as any} height={chartsInRow ? 260 : 320} />
+            </View>
+          </View>
+        </View>
+      )}
+
+      <View style={[{ flexDirection: "row", width: "100%" }]}>
         <View style={{ flex: 1, paddingHorizontal: 6, minWidth: 0 }}>
           <View style={styles.sectionHeaderRow}>
             <Text style={[styles.subHeader, styles.attackerLabel]}>Attacker</Text>
-            <TouchableOpacity style={styles.sectionToggleBtn} onPress={() => setCollapsed((c) => ({ ...c, attacker: !c.attacker }))}>
+            <TouchableOpacity
+              style={styles.sectionToggleBtn}
+              onPress={() => setCollapsed((c) => ({ ...c, attacker: !c.attacker }))}
+            >
               <Text style={styles.sectionToggleText}>{collapsed.attacker ? "Expand" : "Collapse"}</Text>
             </TouchableOpacity>
           </View>
@@ -376,7 +477,7 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
               colourStyle={styles.attackerLabel}
               detail={detail}
               winSide="attacker"
-              passives={buildLines(passiveAtk, sortAndLimit(heroProcsAtk, heroLimit), pctAtk)}
+              passives={buildLines(passiveAtk, heroProcsAtk, pctAtk)}
               bonus={bonusAtk}
               troopProcs={{
                 infantry: sortAndLimit(troopProcsAtk.infantry, troopLimit),
@@ -390,7 +491,10 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
         <View style={{ flex: 1, paddingHorizontal: 6, minWidth: 0 }}>
           <View style={styles.sectionHeaderRow}>
             <Text style={[styles.subHeader, styles.defenderLabel]}>Defender</Text>
-            <TouchableOpacity style={styles.sectionToggleBtn} onPress={() => setCollapsed((c) => ({ ...c, defender: !c.defender }))}>
+            <TouchableOpacity
+              style={styles.sectionToggleBtn}
+              onPress={() => setCollapsed((c) => ({ ...c, defender: !c.defender }))}
+            >
               <Text style={styles.sectionToggleText}>{collapsed.defender ? "Expand" : "Collapse"}</Text>
             </TouchableOpacity>
           </View>
@@ -400,7 +504,7 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
               colourStyle={styles.defenderLabel}
               detail={detail}
               winSide="defender"
-              passives={buildLines(passiveDef, sortAndLimit(heroProcsDef, heroLimit), pctDef)}
+              passives={buildLines(passiveDef, heroProcsDef, pctDef)}
               bonus={bonusDef}
               troopProcs={{
                 infantry: sortAndLimit(troopProcsDef.infantry, troopLimit),
@@ -412,19 +516,67 @@ export const ResultsSection: React.FC<Props> = ({ result, onRerun }) => {
           )}
         </View>
       </View>
-      {/* AI Analysis */}
+
+      {/* AI Key + Analysis */}
       <View style={{ marginTop: 12 }}>
-        <TouchableOpacity onPress={sendToAi} style={[styles.buttonContainer, aiBusy && styles.disabledButton]} disabled={aiBusy}>
+        {/* API Key Entry */}
+        <View style={[styles.row, { marginBottom: 10 }]}>
+          <Text style={[styles.label, { marginBottom: 8 }]}>OpenAI API key</Text>
+          <TextInput
+            value={apiKey}
+            onChangeText={setApiKey}
+            placeholder="sk-..."
+            placeholderTextColor={Platform.OS === "web" ? "#9CA3AF" : undefined}
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={[styles.input, { marginBottom: 8 }]}
+          />
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <TouchableOpacity
+              onPress={saveApiKey}
+              disabled={savingKey}
+              style={[styles.buttonContainer, savingKey && styles.disabledButton, { flex: 0 }]}
+            >
+              <Text style={styles.buttonText}>{savingKey ? "Saving..." : "Save Key"}</Text>
+            </TouchableOpacity>
+            {!!apiKey && (
+              <TouchableOpacity
+                onPress={clearApiKey}
+                disabled={savingKey}
+                style={[styles.secondaryButtonContainer, savingKey && styles.disabledButton, { flex: 0 }]}
+              >
+                <Text
+                  style={{
+                    fontWeight: "700",
+                    color: "#FFFFFF" as any,
+                    ...(Platform.OS === "web" ? { color: "#E5E7EB" } : {}),
+                  }}
+                >
+                  Clear
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <Text style={[styles.helperText, { marginTop: 8 }]}>
+            Stored locally on this device only. Leave blank to use the server default key.
+          </Text>
+        </View>
+        <TouchableOpacity
+          onPress={sendToAi}
+          style={[styles.buttonContainer, aiBusy && styles.disabledButton]}
+          disabled={aiBusy}
+        >
           <Text style={styles.buttonText}>{aiBusy ? "Analyzing…" : "Analyze Battle (AI)"}</Text>
         </TouchableOpacity>
         {aiText && (
-          <View style={[styles.row, { backgroundColor: '#1F2937' }]}>
+          <View style={[styles.row, { backgroundColor: "#1F2937" }]}>
             <Text
               style={{
-                color: '#E5E7EB',
-                ...(Platform.OS === 'web'
+                color: "#E5E7EB",
+                ...(Platform.OS === "web"
                   ? {
-                      whiteSpace: 'pre-wrap' as any,
+                      whiteSpace: "pre-wrap" as any,
                       fontFamily:
                         'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
                     }
@@ -466,9 +618,7 @@ const SideBlock: React.FC<SBProps> = ({
   troopProcs,
   sideDetails,
 }) => {
-  const SV = (n: number) => (
-    <Text style={[styles.resultValue, n === 0 && styles.zeroText]}>{n}</Text>
-  );
+  const SV = (n: number) => <Text style={[styles.resultValue, n === 0 && styles.zeroText]}>{n}</Text>;
 
   const [showAllImpacts, setShowAllImpacts] = React.useState(false);
 
@@ -507,7 +657,7 @@ const SideBlock: React.FC<SBProps> = ({
           <Text style={styles.subHeader}>Totals</Text>
           <View style={styles.tableContainer}>
             {/* Wide layout */}
-            <View style={[styles.tableHeaderRow, { display: Platform.OS === 'web' ? 'flex' : 'none' }]}>
+            <View style={[styles.tableHeaderRow, { display: Platform.OS === "web" ? "flex" : "none" }]}>
               <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Start</Text>
               <Text style={[styles.tableHeaderCell, { flex: 1 }]}>End</Text>
               <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Losses</Text>
@@ -515,7 +665,7 @@ const SideBlock: React.FC<SBProps> = ({
               <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Kills</Text>
               <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Kill %</Text>
             </View>
-            <View style={[styles.tableRow, { display: Platform.OS === 'web' ? 'flex' : 'none' }]}>
+            <View style={[styles.tableRow, { display: Platform.OS === "web" ? "flex" : "none" }]}>
               <Text style={[styles.tableCell, { flex: 1 }]}>{sideDetails.summary.start}</Text>
               <Text style={[styles.tableCell, { flex: 1 }]}>{sideDetails.summary.end}</Text>
               <Text style={[styles.tableCell, { flex: 1 }]}>{sideDetails.summary.losses}</Text>
@@ -529,18 +679,48 @@ const SideBlock: React.FC<SBProps> = ({
             </View>
             {/* Stacked for small screens */}
             {[
-              { label: 'Start', v: sideDetails.summary.start },
-              { label: 'End', v: sideDetails.summary.end },
-              { label: 'Losses', v: sideDetails.summary.losses },
-              { label: 'Loss %', v: `${(sideDetails.summary.loss_pct * 100).toFixed(1)}%` },
-              { label: 'Kills', v: sideDetails.summary.kills },
-              { label: 'Kill %', v: `${(sideDetails.summary.kill_pct * 100).toFixed(1)}%` },
+              { label: "Start", v: sideDetails.summary.start },
+              { label: "End", v: sideDetails.summary.end },
+              { label: "Losses", v: sideDetails.summary.losses },
+              { label: "Loss %", v: `${(sideDetails.summary.loss_pct * 100).toFixed(1)}%` },
+              { label: "Kills", v: sideDetails.summary.kills },
+              { label: "Kill %", v: `${(sideDetails.summary.kill_pct * 100).toFixed(1)}%` },
             ].map((row, idx) => (
-              <View key={idx} style={[styles.stackRow, { display: Platform.OS === 'web' ? 'none' : 'flex' }]}>
+              <View key={idx} style={[styles.stackRow, { display: Platform.OS === "web" ? "none" : "flex" }]}>
                 <Text style={styles.stackLabel}>{row.label}</Text>
                 <Text style={styles.stackValue}>{row.v as any}</Text>
               </View>
             ))}
+          </View>
+
+          {/* Per-class breakdown */}
+          <Text style={styles.subHeader}>By Class</Text>
+          <View style={styles.tableContainer}>
+            <View style={styles.tableHeaderRow}>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Class</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Start</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>End</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Losses</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Kills</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Survivors</Text>
+            </View>
+            {(["Infantry", "Lancer", "Marksman"] as const).map((cls) => {
+              const start = (sideDetails.heroes as any)?.[cls]?.count_start ?? 0;
+              const end = (sideDetails.heroes as any)?.[cls]?.count_end ?? 0;
+              const losses = Math.max(0, start - end);
+              const kills = sideDetails.kills?.[cls] ?? 0;
+              const survivors = end;
+              return (
+                <View key={cls} style={styles.tableRow}>
+                  <Text style={[styles.tableCell, { flex: 1 }]}>{cls}</Text>
+                  <Text style={[styles.tableCell, { flex: 1 }]}>{start}</Text>
+                  <Text style={[styles.tableCell, { flex: 1 }]}>{end}</Text>
+                  <Text style={[styles.tableCell, { flex: 1 }]}>{losses}</Text>
+                  <Text style={[styles.tableCell, { flex: 1 }]}>{kills}</Text>
+                  <Text style={[styles.tableCell, { flex: 1 }]}>{survivors}</Text>
+                </View>
+              );
+            })}
           </View>
         </>
       )}
@@ -554,12 +734,12 @@ const SideBlock: React.FC<SBProps> = ({
       </View>
       <View style={styles.tableContainer}>
         {/* Wide layout */}
-        <View style={[styles.tableHeaderRow, { display: Platform.OS === 'web' ? 'flex' : 'none' }]}>
+        <View style={[styles.tableHeaderRow, { display: Platform.OS === "web" ? "flex" : "none" }]}>
           <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Name</Text>
           <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Percent</Text>
         </View>
         {(() => {
-          let rows = passives.map((ln) => {
+          let rows: { name: string; percent: string }[] = passives.map((ln: string) => {
             let m = ln.match(/^(.*?): ([^+]+\+[-\d.]+%)(?:\s*\(enemy\))?/);
             if (m) return { name: m[1], percent: m[2].trim() };
             m = ln.match(/^(.*?): \+([-\d.]+)% \(triggered \d+×\)/);
@@ -569,13 +749,13 @@ const SideBlock: React.FC<SBProps> = ({
             return { name: ln, percent: "" };
           });
           if (!showAllImpacts) rows = rows.slice(0, 9);
-          return rows.map((row, i) => (
+          return rows.map((row: { name: string; percent: string }, i: number) => (
             <View key={i}>
-              <View style={[styles.tableRow, { display: Platform.OS === 'web' ? 'flex' : 'none' }]}>
+              <View style={[styles.tableRow, { display: Platform.OS === "web" ? "flex" : "none" }]}>
                 <Text style={[styles.tableCell, { flex: 2, textAlign: "left" }]}>{row.name}</Text>
                 <Text style={[styles.tableCell, { flex: 2 }]}>{row.percent}</Text>
               </View>
-              <View style={[styles.stackRow, { display: Platform.OS === 'web' ? 'none' : 'flex' }]}>
+              <View style={[styles.stackRow, { display: Platform.OS === "web" ? "none" : "flex" }]}>
                 <Text style={styles.stackLabel}>{row.name}</Text>
                 {!!row.percent && <Text style={styles.stackValue}>{row.percent}</Text>}
               </View>
@@ -588,94 +768,6 @@ const SideBlock: React.FC<SBProps> = ({
       {(["infantry", "lancer", "marksman"] as const).map((cls) => (
         <TroopTable key={cls} cls={cls} procs={troopProcs[cls]} />
       ))}
-
-      {/* Kills and Survivors per Troop Type */}
-      {sideDetails && (
-        <>
-          <Text style={styles.resultHeader}>Kills & Survivors</Text>
-          <View style={styles.tableContainer}>
-            <View style={styles.tableHeaderRow}>
-              <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Troop Type</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Kills</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Survivors</Text>
-            </View>
-            {(["Infantry", "Lancer", "Marksman"] as const).map((cls) => (
-              <View key={cls} style={styles.tableRow}>
-                <Text style={[styles.tableCell, { flex: 2 }]}>{cls}</Text>
-                <View style={[{ flex: 1, flexDirection: 'row', alignItems: 'center' }]}>
-                  <Text style={[styles.tableCell, { flex: undefined, width: 50, textAlign: 'right' }]}>{sideDetails.kills?.[cls] ?? 0}</Text>
-                  <View style={styles.barTrack}>
-                    <View style={[styles.barFill, { width: `${Math.min(100, Math.round(((sideDetails.kills?.[cls] ?? 0) / maxKill) * 100))}%` }]} />
-                  </View>
-                </View>
-                <View style={[{ flex: 1, flexDirection: 'row', alignItems: 'center' }]}>
-                  <Text style={[styles.tableCell, { flex: undefined, width: 50, textAlign: 'right' }]}>{sideDetails.survivors?.[cls] ?? 0}</Text>
-                  <View style={styles.barTrack}>
-                    <View style={[styles.barFill, { width: `${Math.min(100, Math.round(((sideDetails.survivors?.[cls] ?? 0) / maxSurv) * 100))}%` }]} />
-                  </View>
-                </View>
-              </View>
-            ))}
-          </View>
-
-          {/* Details table */}
-      <Text style={[styles.subHeader, colourStyle]}>
-            {label} Details
-          </Text>
-          <View style={styles.tableContainer}>
-            <View style={styles.tableHeaderRow}>
-              <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Hero</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Gen</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Class</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>EW Lv</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Start</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>End</Text>
-            </View>
-            {Object.entries(sideDetails.heroes).map(([cls, h]: [string, any]) => (
-              <View key={cls} style={styles.tableRow}>
-                <Text style={[styles.tableCell, { flex: 2 }]}>{h.name}</Text>
-                <Text style={[styles.tableCell, { flex: 1 }]}>{h.generation}</Text>
-                <Text style={[styles.tableCell, { flex: 1 }]}>{cls}</Text>
-                <Text style={[styles.tableCell, { flex: 1 }]}>
-                  {h.exclusive_weapon?.level ?? "-"}
-                </Text>
-                <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.count_start as number)}</Text>
-                <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.count_end as number)}</Text>
-              </View>
-            ))}
-          </View>
-
-          <Text style={styles.subHeader}>Hero Performance</Text>
-          <View style={styles.tableContainer}>
-            <View style={styles.tableHeaderRow}>
-              <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Hero</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Lost</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Loss %</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Kills</Text>
-              <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Kill %</Text>
-            </View>
-            {Object.entries(sideDetails.heroes).map(([cls, h]: [string, any]) => (
-              <View key={cls} style={styles.tableRow}>
-                <Text style={[styles.tableCell, { flex: 2 }]}>{h.name}</Text>
-                <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.count_lost as number)}</Text>
-                <View style={[{ flex: 1, flexDirection: 'row', alignItems: 'center' }]}>
-                  <Text style={[styles.tableCell, { flex: undefined, width: 48, textAlign: 'right' }]}>{((h.loss_pct || 0) * 100).toFixed(1)}%</Text>
-                  <View style={styles.barTrack}>
-                    <View style={[styles.barFill, { width: `${Math.min(100, Math.round((h.loss_pct || 0) * 100))}%`, backgroundColor: '#F59E0B' }]} />
-                  </View>
-                </View>
-                <Text style={[styles.tableCell, { flex: 1 }]}>{SV(h.kills as number)}</Text>
-                <View style={[{ flex: 1, flexDirection: 'row', alignItems: 'center' }]}>
-                  <Text style={[styles.tableCell, { flex: undefined, width: 48, textAlign: 'right' }]}>{((h.kill_pct || 0) * 100).toFixed(1)}%</Text>
-                  <View style={styles.barTrack}>
-                    <View style={[styles.barFill, { width: `${Math.min(100, Math.round((h.kill_pct || 0) * 100))}%`, backgroundColor: '#10B981' }]} />
-                  </View>
-                </View>
-              </View>
-            ))}
-          </View>
-        </>
-      )}
 
       {/* cumulative bonuses */}
       <Text style={styles.subHeader}>Cumulative % Bonuses</Text>
@@ -692,9 +784,7 @@ const SideBlock: React.FC<SBProps> = ({
           Object.entries(bonus).map(([stat, val]) => (
             <View key={stat} style={styles.tableRow}>
               <Text style={[styles.tableCell, { flex: 2 }]}>{stat}</Text>
-              <Text style={[styles.tableCell, { flex: 1 }]}>
-                {(val * 100).toFixed(1)}%
-              </Text>
+              <Text style={[styles.tableCell, { flex: 1 }]}>{(val * 100).toFixed(1)}%</Text>
             </View>
           ))
         )}
@@ -708,9 +798,7 @@ const TroopTable: React.FC<{
   procs: [string, number][];
 }> = ({ cls, procs }) => (
   <View style={{ marginBottom: 8 }}>
-    <Text style={styles.subHeader}>
-      {cls.charAt(0).toUpperCase() + cls.slice(1)} Troop Skills
-    </Text>
+    <Text style={styles.subHeader}>{cls.charAt(0).toUpperCase() + cls.slice(1)} Troop Skills</Text>
     <View style={styles.tableContainer}>
       <View style={styles.tableHeaderRow}>
         <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Skill</Text>
@@ -723,7 +811,7 @@ const TroopTable: React.FC<{
       ) : (
         procs.map(([skill, n], index) => (
           <View key={skill} style={styles.tableRow}>
-            <Text style={[styles.tableCell, { flex: 2, textAlign: 'left' }]}>{index + 1}. {skill}</Text>
+            <Text style={[styles.tableCell, { flex: 2, textAlign: "left" }]}>{index + 1}. {skill}</Text>
             <Text style={[styles.tableCell, { flex: 1 }]}>{n}</Text>
           </View>
         ))

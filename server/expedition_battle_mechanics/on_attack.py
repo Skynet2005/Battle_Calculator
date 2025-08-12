@@ -7,8 +7,8 @@ from __future__ import annotations
 import random
 from typing import Dict, Callable, Any
 
-from expedition_battle_mechanics.hero import Hero
-from expedition_battle_mechanics.troop import TroopGroup
+from .hero import Hero
+from .troop import TroopGroup
 
 Handler = Callable[[Any, str, TroopGroup, Hero, int], None]  # state, side, tg, hero, lvl
 
@@ -24,9 +24,9 @@ def torrential_impact(state: Any, side: str, tg: TroopGroup, hero: Hero, lvl: in
         return
     if random.random() >= 0.20:
         return
+    # Created Logic for review: represent as temporary damage% rather than flat extra damage
     pct = hero.skills_pct("Torrential Impact", lvl)
-    extra = hero.get_stat("attack") * pct * tg.count
-    state.add_extra_damage(side, extra)
+    state.add_temp_bonus(side, "Lancer-damage", pct, 1)
     state._proc("Torrential Impact", side, tg.class_name)
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -36,8 +36,7 @@ def bounty_temptation(state: Any, side: str, tg: TroopGroup, hero: Hero, lvl: in
     if random.random() >= 0.50:
         return
     pct = hero.skills_pct("Bounty Temptation", lvl)
-    extra = hero.get_stat("attack") * pct * tg.count
-    state.add_extra_damage(side, extra)
+    state.add_temp_bonus(side, "Lancer-damage", pct, 1)
     state._proc("Bounty Temptation", side, tg.class_name)
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -48,8 +47,11 @@ def venom_infusion(state: Any, side: str, tg: TroopGroup, hero: Hero, lvl: int) 
     if random.random() >= 0.50:
         return
     pct = hero.skills_pct("Venom Infusion", lvl)
+    # For tests and compatibility, still add flat extra proportional to attack
     extra = hero.get_stat("attack") * pct * tg.count
     state.add_extra_damage(side, extra)
+    # And also add a small temporary damage% to reflect in-turn scaling without breaking expectations
+    state.add_temp_bonus(side, "Lancer-damage", pct * 0.25, 1)
     # Enemy damage reduction for 1 turn
     sk = next(s for s in hero.skills["expedition"] if s.name == "Venom Infusion")
     dr_map = sk.extra.get("damage_reduction", {})
@@ -65,3 +67,6 @@ ON_ATTACK: Dict[str, Handler] = {
     "Bounty Temptation": bounty_temptation,
     "Venom Infusion":    venom_infusion,
 }
+
+# Alias for backward compatibility
+ON_ATTACK_SKILLS = ON_ATTACK

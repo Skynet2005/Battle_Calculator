@@ -8,8 +8,8 @@ side is processed exactly once.
 
 from __future__ import annotations
 from typing import Dict, Optional, Iterable
-from expedition_battle_mechanics.hero import Hero
-from expedition_battle_mechanics.stacking import (
+from .hero import Hero
+from .stacking import (
     AdditiveStrategy,
     BonusBucket,
     MaxStrategy,
@@ -82,6 +82,25 @@ class BonusSource:
                 for k, v in ew.perks.items():
                     # unify key style (“infantry-health” → “infantry_health”)
                     self._add_base(k.replace("-", "_").lower(), v)
+
+        # 1b) hero base stat percentages (class-specific expedition bonuses)
+        # Created Logic for review: Some hero profiles define expedition-relevant
+        # base percentages such as "marksman-attack": 0.14. We merge ONLY keys
+        # that are clearly class-specific percent modifiers in the form
+        # "{class}-{stat}". Exploration flat stats like numeric "attack": 2157
+        # are ignored for expedition calculations.
+        for hero in self.heroes:
+            for k, v in (hero.base_stats or {}).items():
+                # consider only keys with a dash, e.g., "lancer-attack"
+                if "-" not in k:
+                    continue
+                try:
+                    val = float(v)
+                except Exception:
+                    continue
+                # normalize to internal key style
+                key = k.replace("-", "_").lower()
+                self._add_base(key, val)
 
         # 2) external permanent buffs
         #    Accept both generic and class-specific keys; map class-specific

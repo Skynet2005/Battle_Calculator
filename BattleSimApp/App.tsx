@@ -272,6 +272,144 @@ export default function App() {
   const runSim = async () => {
     try {
       setIsRunning(true);
+      // Created Logic for review: ensure City Buff totals (gear/charms) are computed before sim
+      const ensureCityTotals = async () => {
+        const gearSlots: Array<keyof ChiefGearSelectionMap> = ["Cap", "Coat", "Ring", "Watch", "Pants", "Weapon"] as any;
+        const mkItems = (sel?: any) =>
+          gearSlots
+            .filter((s) => sel && sel[s] && sel[s].tier)
+            .map((s) => ({ item: s, tier: sel[s].tier, stars: sel[s].stars ?? 0 }));
+
+        // Normalize hero gear selection to API request shape
+        // Ensure that stacking is always "additive" regardless of input
+        const normalizeHeroGear = (sel: any) => ({
+          infantry: {
+            goggles: {
+              level: sel?.Infantry?.goggles?.level ?? 200,
+              essence_level: sel?.Infantry?.goggles?.essence_level ?? 20,
+              stacking: "additive",
+            },
+            boot: {
+              level: sel?.Infantry?.boot?.level ?? 200,
+              essence_level: sel?.Infantry?.boot?.essence_level ?? 20,
+              stacking: "additive",
+            },
+            glove: {
+              level: sel?.Infantry?.glove?.level ?? 200,
+              essence_level: sel?.Infantry?.glove?.essence_level ?? 20,
+              stacking: "additive",
+            },
+            belt: {
+              level: sel?.Infantry?.belt?.level ?? 200,
+              essence_level: sel?.Infantry?.belt?.essence_level ?? 20,
+              stacking: "additive",
+            },
+          },
+          lancer: {
+            goggles: {
+              level: sel?.Lancer?.goggles?.level ?? 200,
+              essence_level: sel?.Lancer?.goggles?.essence_level ?? 20,
+              stacking: "additive",
+            },
+            boot: {
+              level: sel?.Lancer?.boot?.level ?? 200,
+              essence_level: sel?.Lancer?.boot?.essence_level ?? 20,
+              stacking: "additive",
+            },
+            glove: {
+              level: sel?.Lancer?.glove?.level ?? 200,
+              essence_level: sel?.Lancer?.glove?.essence_level ?? 20,
+              stacking: "additive",
+            },
+            belt: {
+              level: sel?.Lancer?.belt?.level ?? 200,
+              essence_level: sel?.Lancer?.belt?.essence_level ?? 20,
+              stacking: "additive",
+            },
+          },
+          marksman: {
+            goggles: {
+              level: sel?.Marksman?.goggles?.level ?? 200,
+              essence_level: sel?.Marksman?.goggles?.essence_level ?? 20,
+              stacking: "additive",
+            },
+            boot: {
+              level: sel?.Marksman?.boot?.level ?? 200,
+              essence_level: sel?.Marksman?.boot?.essence_level ?? 20,
+              stacking: "additive",
+            },
+            glove: {
+              level: sel?.Marksman?.glove?.level ?? 200,
+              essence_level: sel?.Marksman?.glove?.essence_level ?? 20,
+              stacking: "additive",
+            },
+            belt: {
+              level: sel?.Marksman?.belt?.level ?? 200,
+              essence_level: sel?.Marksman?.belt?.essence_level ?? 20,
+              stacking: "additive",
+            },
+          },
+        });
+
+        const promises: Promise<any>[] = [];
+        // Attacker gear totals
+        if (!atkGearTotals && atkGearSel && mkItems(atkGearSel).length === gearSlots.length) {
+          promises.push(
+            axios.post("http://localhost:8000/api/gear/chief/calc", { items: mkItems(atkGearSel) })
+              .then((r) => setAtkGearTotals(r.data))
+              .catch(()=>{})
+          );
+        }
+        // Defender gear totals
+        if (!defGearTotals && defGearSel && mkItems(defGearSel).length === gearSlots.length) {
+          promises.push(
+            axios.post("http://localhost:8000/api/gear/chief/calc", { items: mkItems(defGearSel) })
+              .then((r) => setDefGearTotals(r.data))
+              .catch(()=>{})
+          );
+        }
+
+        // Charms require levels_by_slot with 3 entries per slot
+        const fullCharm = (lv: any) => {
+          if (!lv) return false;
+          return ["Cap","Coat","Ring","Watch","Pants","Weapon"].every((s) => Array.isArray(lv[s]) && lv[s].length === 3 && lv[s].every((n: any)=> (n||0) > 0));
+        };
+        if (!atkCharmTotals && fullCharm(atkCharmLvls)) {
+          promises.push(
+            axios.post("http://localhost:8000/api/gear/chief/charms/calc", { levels_by_slot: atkCharmLvls })
+              .then((r) => setAtkCharmTotals(r.data))
+              .catch(()=>{})
+          );
+        }
+        if (!defCharmTotals && fullCharm(defCharmLvls)) {
+          promises.push(
+            axios.post("http://localhost:8000/api/gear/chief/charms/calc", { levels_by_slot: defCharmLvls })
+              .then((r) => setDefCharmTotals(r.data))
+              .catch(()=>{})
+          );
+        }
+
+        // Hero gear (legendary/mythic) totals
+        if (!atkHeroGearTotals && atkHeroGearSel) {
+          promises.push(
+            axios.post("http://localhost:8000/api/hero-gear/calc", normalizeHeroGear(atkHeroGearSel))
+              .then((r) => setAtkHeroGearTotals(r.data))
+              .catch(()=>{})
+          );
+        }
+        if (!defHeroGearTotals && defHeroGearSel) {
+          promises.push(
+            axios.post("http://localhost:8000/api/hero-gear/calc", normalizeHeroGear(defHeroGearSel))
+              .then((r) => setDefHeroGearTotals(r.data))
+              .catch(()=>{})
+          );
+        }
+        if (promises.length) {
+          await Promise.all(promises);
+        }
+      };
+
+      await ensureCityTotals();
       const payload = buildPayload();
       lastPayloadRef.current = payload;
       const r = await axios.post<SimResult>("http://localhost:8000/api/simulate", payload);
@@ -414,10 +552,11 @@ export default function App() {
             />
           </CollapsibleSection>
 
-          {/* Attacker side */}
-          <CollapsibleSection title="Attacker Setup" defaultOpen>
+          {/* Attacker - Hero Formation & Ratios */}
+          <CollapsibleSection title="Attacker - Hero Formation & Ratios" defaultOpen>
             <SideSetup
               side="atk"
+              variant="formation"
               heroes={heroes}
               troops={troops}
               heroesByClass={heroesByClass}
@@ -435,9 +574,35 @@ export default function App() {
               capacity={attackerCapacity}
               setCapacity={setAttackerCapacity}
               attackType={attackType}
-              onResearchBuffsChange={(b)=> setAtkResearchBuffs(b)}
-              onResearchSelectionChange={(rows)=> setAtkResearchSel(rows)}
               researchSelection={atkResearchSel}
+              heroGearSelection={atkHeroGearSel as any}
+              supportHeroes={atkSupportHeroes}
+              onSupportHeroesChange={setAtkSupportHeroes}
+            />
+          </CollapsibleSection>
+
+          {/* Attacker City Buffs */}
+          <CollapsibleSection title="Attacker City Buffs" defaultOpen={false}>
+            <SideSetup
+              side="atk"
+              variant="city"
+              heroes={heroes}
+              troops={troops}
+              heroesByClass={heroesByClass}
+              troopsByClass={troopsByClass}
+              heroSel={atkH}
+              troopSel={atkT}
+              slotSel={atkSlots}
+              ratioSel={atkRatios}
+              ewLevelSel={atkEw}
+              setHeroSel={setAtkH}
+              setTroopSel={setAtkT}
+              setSlotSel={setAtkSlots}
+              setRatioSel={setAtkRatios}
+              setEwLevelSel={setAtkEw}
+              capacity={attackerCapacity}
+              setCapacity={setAttackerCapacity}
+              attackType={attackType}
               gearSelection={atkGearSel}
               onGearSelectionChange={(v)=> setAtkGearSel(v)}
               charmLevels={atkCharmLvls}
@@ -446,17 +611,19 @@ export default function App() {
               onChiefSkinBonusesChange={setAtkSkin}
               daybreakBonuses={atkDaybreak}
               onDaybreakChange={setAtkDaybreak}
+              onResearchBuffsChange={(b)=> setAtkResearchBuffs(b)}
+              onResearchSelectionChange={(rows)=> setAtkResearchSel(rows)}
+              researchSelection={atkResearchSel}
               heroGearSelection={atkHeroGearSel as any}
-              onHeroGearSelectionChange={(v: HeroGearSelectionByClass) => setAtkHeroGearSel(v)}
-              supportHeroes={atkSupportHeroes}
-              onSupportHeroesChange={setAtkSupportHeroes}
+              onHeroGearSelectionChange={(v)=> setAtkHeroGearSel(v)}
             />
           </CollapsibleSection>
 
-          {/* Defender side */}
-          <CollapsibleSection title="Defender Setup" defaultOpen>
+          {/* Defender - Hero Formation & Ratios */}
+          <CollapsibleSection title="Defender - Hero Formation & Ratios" defaultOpen>
             <SideSetup
               side="def"
+              variant="formation"
               heroes={heroes}
               troops={troops}
               heroesByClass={heroesByClass}
@@ -474,9 +641,35 @@ export default function App() {
               capacity={defenderCapacity}
               setCapacity={setDefenderCapacity}
               attackType={attackType}
-              onResearchBuffsChange={(b)=> setDefResearchBuffs(b)}
-              onResearchSelectionChange={(rows)=> setDefResearchSel(rows)}
               researchSelection={defResearchSel}
+              heroGearSelection={defHeroGearSel as any}
+              supportHeroes={defSupportHeroes}
+              onSupportHeroesChange={setDefSupportHeroes}
+            />
+          </CollapsibleSection>
+
+          {/* Defender City Buffs */}
+          <CollapsibleSection title="Defender City Buffs" defaultOpen={false}>
+            <SideSetup
+              side="def"
+              variant="city"
+              heroes={heroes}
+              troops={troops}
+              heroesByClass={heroesByClass}
+              troopsByClass={troopsByClass}
+              heroSel={defH}
+              troopSel={defT}
+              slotSel={defSlots}
+              ratioSel={defRatios}
+              ewLevelSel={defEw}
+              setHeroSel={setDefH}
+              setTroopSel={setDefT}
+              setSlotSel={setDefSlots}
+              setRatioSel={setDefRatios}
+              setEwLevelSel={setDefEw}
+              capacity={defenderCapacity}
+              setCapacity={setDefenderCapacity}
+              attackType={attackType}
               gearSelection={defGearSel}
               onGearSelectionChange={(v)=> setDefGearSel(v)}
               charmLevels={defCharmLvls}
@@ -485,10 +678,11 @@ export default function App() {
               onChiefSkinBonusesChange={setDefSkin}
               daybreakBonuses={defDaybreak}
               onDaybreakChange={setDefDaybreak}
+              onResearchBuffsChange={(b)=> setDefResearchBuffs(b)}
+              onResearchSelectionChange={(rows)=> setDefResearchSel(rows)}
+              researchSelection={defResearchSel}
               heroGearSelection={defHeroGearSel as any}
-              onHeroGearSelectionChange={(v: HeroGearSelectionByClass) => setDefHeroGearSel(v)}
-              supportHeroes={defSupportHeroes}
-              onSupportHeroesChange={setDefSupportHeroes}
+              onHeroGearSelectionChange={(v)=> setDefHeroGearSel(v)}
             />
           </CollapsibleSection>
 

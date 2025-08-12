@@ -10,8 +10,8 @@ import hero_data.hero_loader as hl
 from expedition_battle_mechanics.loader import hero_from_dict
 from expedition_battle_mechanics.troop import TroopGroup
 from expedition_battle_mechanics.definitions import TroopDefinition
-from expedition_battle_mechanics.skill_handlers.on_attack import venom_infusion
-from expedition_battle_mechanics.skill_handlers.on_turn import (
+from expedition_battle_mechanics.on_attack import venom_infusion
+from expedition_battle_mechanics.on_turn import (
     chemical_terror,
     toxic_release,
 )

@@ -3,7 +3,7 @@ Passive expedition skills that are always “on”.
 """
 
 from typing import Dict, Callable
-from expedition_battle_mechanics.hero import Hero
+from .hero import Hero
 
 AddFn = Callable[[str, float], None]
 
@@ -101,6 +101,54 @@ def bulwarks(hero: Hero, lvl: int, add: AddFn) -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Gwen – expedition passives
+# Created Logic for review:
+# - Eagle Vision: increases target's damage taken → enemy-defense-down
+# - Air Dominance: after every 5 attacks grant extra damage → model as flat damage% for all troops
+# - Blastmaster: every 4 attacks add extra damage → model as flat damage% for Marksmen
+def eagle_vision(hero: Hero, lvl: int, add: AddFn) -> None:
+    pct = hero.skills_pct("Eagle Vision", lvl)
+    add("enemy-defense-down", pct)
+
+
+def air_dominance(hero: Hero, lvl: int, add: AddFn) -> None:
+    pct = hero.skills_pct("Air Dominance", lvl)
+    # Apply as generic damage% so it boosts all classes' output
+    add("damage", pct)
+
+
+def blastmaster(hero: Hero, lvl: int, add: AddFn) -> None:
+    pct = hero.skills_pct("Blastmaster", lvl)
+    add("Marksman-damage", pct)
+
+
+# Gwen EW expedition: "Marauder" – Rally Troops Lethality up
+def marauder(hero: Hero, lvl: int, add: AddFn) -> None:
+    pct = hero.skills_pct("Marauder", lvl)
+    add("lethality", pct)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Renee – expedition passives moved to ON_TURN timing (see on_turn.py)
+def nightmare_trace(hero: Hero, lvl: int, add: AddFn) -> None:
+    return  # timing-based; handled in on_turn
+
+
+def dreamcatcher(hero: Hero, lvl: int, add: AddFn) -> None:
+    return  # timing-based; handled in on_turn
+
+
+def dreamslice(hero: Hero, lvl: int, add: AddFn) -> None:
+    return  # timing-based; handled in on_turn
+
+
+# Renee EW expedition: "Wistful Enhancement" – Rally Troops' Lethality up
+def wistful_enhancement(hero: Hero, lvl: int, add: AddFn) -> None:
+    pct = hero.skills_pct("Wistful Enhancement", lvl)
+    add("lethality", pct)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Patrick (Epic) – defensive joiner
 # Created Logic for review: Model Patrick's expedition passives as flat % bonuses.
 def super_nutrients(hero: Hero, lvl: int, add: AddFn) -> None:
@@ -113,6 +161,34 @@ def caloric_booster(hero: Hero, lvl: int, add: AddFn) -> None:
     """Patrick increases Attack for all troops."""
     pct = hero.skills_pct("Caloric Booster", lvl)
     add("attack", pct)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Reina – expedition passives
+# Created Logic for review:
+# - Assassin's Instinct: normal attack damage up → model as generic damage%
+# - Swift Jive: chance to dodge normals → approximate as enemy-attack-down at 50% weight of listed chance
+# - Shadow Blade: 25% chance extra lancer attack for [120–200]% → expected value as Lancer-damage = 0.25 * multiplier
+def assassins_instinct(hero: Hero, lvl: int, add: AddFn) -> None:
+    pct = hero.skills_pct("Assassin's Instinct", lvl)
+    add("damage", pct)
+
+
+def swift_jive(hero: Hero, lvl: int, add: AddFn) -> None:
+    chance = hero.skills_pct("Swift Jive", lvl)
+    add("enemy-attack-down", chance * 0.5)  # Created Logic for review
+
+
+def shadow_blade(hero: Hero, lvl: int, add: AddFn) -> None:
+    mult = hero.skills_pct("Shadow Blade", lvl)
+    expected = 0.25 * mult  # 25% proc chance
+    add("Lancer-damage", expected)
+
+
+# Reina EW expedition: "Fiery Invasion" – Rally Troop Lethality up
+def fiery_invasion(hero: Hero, lvl: int, add: AddFn) -> None:
+    pct = hero.skills_pct("Fiery Invasion", lvl)
+    add("lethality", pct)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -158,4 +234,42 @@ PASSIVE_SKILLS: Dict[str, Callable[[Hero, int, AddFn], None]] = {
     # Bradley
     "Power Shot":           power_shot,
     "Siege Insight":        siege_insight,
+    # Gwen
+    "Eagle Vision":         eagle_vision,
+    "Air Dominance":        air_dominance,
+    "Blastmaster":          blastmaster,
+    # Gwen EW
+    "Marauder":             marauder,
+    # Renee
+    "Nightmare Trace":      nightmare_trace,
+    "Dreamcatcher":         dreamcatcher,
+    "Dreamslice":           dreamslice,
+    # Renee EW
+    "Wistful Enhancement":  wistful_enhancement,
+    # Reina
+    "Assassin's Instinct":  assassins_instinct,
+    "Swift Jive":           swift_jive,
+    "Shadow Blade":         shadow_blade,
+    # Reina EW
+    "Fiery Invasion":       fiery_invasion,
 }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Strategy mapping for passive skills
+# ─────────────────────────────────────────────────────────────────────────────
+from .stacking import AdditiveStrategy, MaxStrategy
+
+# Skills that use MaxStrategy (non-stacking)
+MAX_STRATEGY_SKILLS = {
+    "Royal Legion",      # enemy attack down - doesn't stack
+    "Worm's Ravage",     # enemy defense down - doesn't stack
+    "Power Shot",        # enemy defense down - doesn't stack
+    "Abyssal Blessing",  # attack up - use highest value across heroes
+    # For damage-taken debuffs and damage multipliers, keep additive unless balance requires max
+}
+
+def get_passive_strategy(skill_name: str):
+    """Return the stacking strategy for a given passive skill."""
+    if skill_name in MAX_STRATEGY_SKILLS:
+        return MaxStrategy()
+    return AdditiveStrategy()

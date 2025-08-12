@@ -43,9 +43,8 @@ export const CollapsibleSection: React.FC<Props> = ({ title, defaultOpen = true,
           </TouchableOpacity>
         </View>
       </View>
-      {open && (
-        <View>{children}</View>
-      )}
+      {/* Keep children mounted so background calculations (gear/charms/research) still run when collapsed */}
+      <View style={!open ? { display: "none" } : undefined}>{children}</View>
     </View>
   );
 };

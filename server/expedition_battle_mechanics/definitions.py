@@ -5,7 +5,7 @@ Data-model definitions for the expedition battle engine.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Optional, Any
+from typing import Callable, Dict, Optional, Any, List
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -66,3 +66,50 @@ class ExclusiveWeapon:
     health: int
     perks: Dict[str, float] = field(default_factory=dict)
     skills: Dict[str, Skill] = field(default_factory=dict)   # expedition only
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Battle Report Structures
+# ─────────────────────────────────────────────────────────────────────────────
+@dataclass
+class PowerDelta:
+    """Power tracking for start/end/difference."""
+    attacker: Dict[str, int] = field(default_factory=lambda: {"start": 0, "end": 0})
+    defender: Dict[str, int] = field(default_factory=lambda: {"start": 0, "end": 0})
+    difference: Dict[str, int] = field(default_factory=lambda: {"start": 0, "end": 0})
+
+
+@dataclass
+class SideSummary:
+    """Summary statistics for one side."""
+    start: int = 0
+    end: int = 0
+    losses: int = 0
+    loss_pct: float = 0.0
+    kills: int = 0
+    kill_pct: float = 0.0
+
+
+@dataclass
+class Report:
+    """Complete battle report structure."""
+    attacker_formation: Any = None  # Formation
+    defender_formation: Any = None  # Formation
+    attacker: Dict[str, Any] = field(default_factory=dict)
+    defender: Dict[str, Any] = field(default_factory=dict)
+    power: PowerDelta = field(default_factory=PowerDelta)
+    passive_effects: Dict[str, Dict[str, List[str]]] = field(default_factory=dict)
+    bonuses: Dict[str, Dict[str, float]] = field(default_factory=dict)
+    proc_stats: Dict[str, Dict[str, Dict[str, int]]] = field(default_factory=dict)
+    timeline: List[Dict[str, Any]] = field(default_factory=list)
+    rounds: int = 0
+    winner: str = ""
+
+
+@dataclass
+class BattleReportInput:
+    """Input structure for battle simulation."""
+    attacker_formation: Any = None  # Formation
+    defender_formation: Any = None  # Formation
+    attacker_bonuses: Dict[str, float] = field(default_factory=dict)
+    defender_bonuses: Dict[str, float] = field(default_factory=dict)

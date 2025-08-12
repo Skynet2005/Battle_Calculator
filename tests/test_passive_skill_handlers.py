@@ -8,7 +8,7 @@ sys.path.append(str(ROOT / "server"))
 
 import hero_data.hero_loader as hl
 from expedition_battle_mechanics.loader import hero_from_dict
-from expedition_battle_mechanics.skill_handlers import passive as ps
+from expedition_battle_mechanics import passive as ps
 
 
 def test_edith_passives():
