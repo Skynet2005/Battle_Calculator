@@ -20,6 +20,9 @@ import { ChiefCharmsSection } from "./ChiefCharmsSection";
 import { ChiefSkinSection } from "./ChiefSkinSection";
 import { HeroGearSection } from "./HeroGearSection";
 import { DaybreakSection } from "./DaybreakSection";
+import { PetSection, PetBaseStats, PetEntry } from "./PetSection";
+import { BasePetSection, BasePetEntry } from "./BasePetSection";
+import { WarAcademySection, WarAcademyBonuses } from "./WarAcademySection";
 
 interface Props {
   side: "atk" | "def";
@@ -78,6 +81,13 @@ interface Props {
   onResearchBuffsChange?: (buffs: ResearchBuffs) => void;
   // Created Logic for review: choose which subset to render
   variant?: "formation" | "city";
+  // Pet bonuses
+  pets?: PetEntry[];
+  onChange?: (pets: PetEntry[]) => void;
+  basePets?: BasePetEntry[];
+  onBasePetsChange?: (pets: BasePetEntry[]) => void;
+  warAcademy?: WarAcademyBonuses;
+  onWarAcademyChange?: (v: WarAcademyBonuses) => void;
 }
 
 export const SideSetup: React.FC<Props> = (p) => {
@@ -264,6 +274,26 @@ export const SideSetup: React.FC<Props> = (p) => {
                 value={p.daybreakBonuses}
                 onChange={p.onDaybreakChange}
               />
+            </View>
+          </CollapsibleSection>
+
+          {/* War Academy Bonuses */}
+          <CollapsibleSection title="War Academy Bonuses" defaultOpen={false}>
+            <View>
+              <WarAcademySection side={p.side} disabled={p.disabled} value={p.warAcademy} onChange={p.onWarAcademyChange} />
+            </View>
+          </CollapsibleSection>
+
+          {/* Pet Bonuses */}
+          <CollapsibleSection title="Base Stat Pet Bonuses" defaultOpen={false}>
+            <View>
+              <BasePetSection side={p.side} disabled={p.disabled} pets={p.basePets || []} onChange={(list)=> p.onBasePetsChange && p.onBasePetsChange(list)} />
+            </View>
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Battle Pet Bonuses" defaultOpen={false}>
+            <View>
+              <PetSection side={p.side} disabled={p.disabled} pets={p.pets || []} onChange={(list)=> p.onChange && p.onChange(list)} />
             </View>
           </CollapsibleSection>
 

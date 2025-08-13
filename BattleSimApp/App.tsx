@@ -98,6 +98,39 @@ export default function App() {
     troops_lethality_pct: 0, troops_health_pct: 0,
   });
 
+  /* pet bonuses */
+  const defaultPetList = () => ([
+    { name: "Cave Lion", base: { troops_attack_pct: 0, troops_defense_pct: 0, infantry_lethality_pct: 0, infantry_health_pct: 0, lancer_lethality_pct: 0, lancer_health_pct: 0, marksman_lethality_pct: 0, marksman_health_pct: 0 }, level: 1, enabled: false },
+    { name: "Mammoth", base: { troops_attack_pct: 0, troops_defense_pct: 0, infantry_lethality_pct: 0, infantry_health_pct: 0, lancer_lethality_pct: 0, lancer_health_pct: 0, marksman_lethality_pct: 0, marksman_health_pct: 0 }, level: 1, enabled: false },
+    { name: "Frost Gorilla", base: { troops_attack_pct: 0, troops_defense_pct: 0, infantry_lethality_pct: 0, infantry_health_pct: 0, lancer_lethality_pct: 0, lancer_health_pct: 0, marksman_lethality_pct: 0, marksman_health_pct: 0 }, level: 1, enabled: false },
+    { name: "Saber Tooth Tiger", base: { troops_attack_pct: 0, troops_defense_pct: 0, infantry_lethality_pct: 0, infantry_health_pct: 0, lancer_lethality_pct: 0, lancer_health_pct: 0, marksman_lethality_pct: 0, marksman_health_pct: 0 }, level: 1, enabled: false },
+    { name: "Titan Roc", base: { troops_attack_pct: 0, troops_defense_pct: 0, infantry_lethality_pct: 0, infantry_health_pct: 0, lancer_lethality_pct: 0, lancer_health_pct: 0, marksman_lethality_pct: 0, marksman_health_pct: 0 }, level: 1, enabled: false },
+    { name: "Snow Leopard", base: { troops_attack_pct: 0, troops_defense_pct: 0, infantry_lethality_pct: 0, infantry_health_pct: 0, lancer_lethality_pct: 0, lancer_health_pct: 0, marksman_lethality_pct: 0, marksman_health_pct: 0 }, level: 1, enabled: false },
+  ]);
+  const [atkPets, setAtkPets] = React.useState<any[]>(defaultPetList());
+  const [defPets, setDefPets] = React.useState<any[]>(defaultPetList());
+  const defaultBasePets = () => ([
+    { name: "Cave Hyena", base: { troops_attack_pct: 0, troops_defense_pct: 0, infantry_lethality_pct: 0, infantry_health_pct: 0, lancer_lethality_pct: 0, lancer_health_pct: 0, marksman_lethality_pct: 0, marksman_health_pct: 0 } },
+    { name: "Arctic Wolf", base: { troops_attack_pct: 0, troops_defense_pct: 0, infantry_lethality_pct: 0, infantry_health_pct: 0, lancer_lethality_pct: 0, lancer_health_pct: 0, marksman_lethality_pct: 0, marksman_health_pct: 0 } },
+    { name: "Musk Ox", base: { troops_attack_pct: 0, troops_defense_pct: 0, infantry_lethality_pct: 0, infantry_health_pct: 0, lancer_lethality_pct: 0, lancer_health_pct: 0, marksman_lethality_pct: 0, marksman_health_pct: 0 } },
+    { name: "Giant Tapir", base: { troops_attack_pct: 0, troops_defense_pct: 0, infantry_lethality_pct: 0, infantry_health_pct: 0, lancer_lethality_pct: 0, lancer_health_pct: 0, marksman_lethality_pct: 0, marksman_health_pct: 0 } },
+    { name: "Giant Elk", base: { troops_attack_pct: 0, troops_defense_pct: 0, infantry_lethality_pct: 0, infantry_health_pct: 0, lancer_lethality_pct: 0, lancer_health_pct: 0, marksman_lethality_pct: 0, marksman_health_pct: 0 } },
+    { name: "Snow Ape", base: { troops_attack_pct: 0, troops_defense_pct: 0, infantry_lethality_pct: 0, infantry_health_pct: 0, lancer_lethality_pct: 0, lancer_health_pct: 0, marksman_lethality_pct: 0, marksman_health_pct: 0 } },
+    { name: "Iron Rhino", base: { troops_attack_pct: 0, troops_defense_pct: 0, infantry_lethality_pct: 0, infantry_health_pct: 0, lancer_lethality_pct: 0, lancer_health_pct: 0, marksman_lethality_pct: 0, marksman_health_pct: 0 } },
+  ]);
+  const [atkBasePets, setAtkBasePets] = React.useState<any[]>(defaultBasePets());
+  const [defBasePets, setDefBasePets] = React.useState<any[]>(defaultBasePets());
+  const [atkWarAcademy, setAtkWarAcademy] = React.useState<any>({
+    infantry_attack_pct: 0, infantry_defense_pct: 0, infantry_lethality_pct: 0, infantry_health_pct: 0,
+    lancer_attack_pct: 0, lancer_defense_pct: 0, lancer_lethality_pct: 0, lancer_health_pct: 0,
+    marksman_attack_pct: 0, marksman_defense_pct: 0, marksman_lethality_pct: 0, marksman_health_pct: 0,
+  });
+  const [defWarAcademy, setDefWarAcademy] = React.useState<any>({
+    infantry_attack_pct: 0, infantry_defense_pct: 0, infantry_lethality_pct: 0, infantry_health_pct: 0,
+    lancer_attack_pct: 0, lancer_defense_pct: 0, lancer_lethality_pct: 0, lancer_health_pct: 0,
+    marksman_attack_pct: 0, marksman_defense_pct: 0, marksman_lethality_pct: 0, marksman_health_pct: 0,
+  });
+
   /* support heroes (joiners) for rally */
   const [atkSupportHeroes, setAtkSupportHeroes] = React.useState<string[]>(["Jessie", "Jessie", "Jessie", "Jessie"]);
   const [defSupportHeroes, setDefSupportHeroes] = React.useState<string[]>(["Patrick", "Patrick", "Patrick", "Patrick"]);
@@ -265,6 +298,10 @@ export default function App() {
     defenderDaybreakBonuses: defDaybreak,
     attackerHeroGear: atkHeroGearTotals || undefined,
     defenderHeroGear: defHeroGearTotals || undefined,
+    attackerPets: [...atkPets, ...atkBasePets.map((p)=> ({ name: p.name, level: 0, enabled: false, base: p.base }))],
+    defenderPets: [...defPets, ...defBasePets.map((p)=> ({ name: p.name, level: 0, enabled: false, base: p.base }))],
+    attackerWarAcademy: atkWarAcademy,
+    defenderWarAcademy: defWarAcademy,
     attackerSupportHeroes: atkSupportHeroes.filter(h => h !== ""),
     defenderSupportHeroes: defSupportHeroes.filter(h => h !== ""),
   });
@@ -479,6 +516,12 @@ export default function App() {
     defDaybreakBonuses: defDaybreak,
     atkHeroGearSelection: atkHeroGearSel,
     defHeroGearSelection: defHeroGearSel,
+    atkPets,
+    defPets,
+    atkBasePets,
+    defBasePets,
+    atkWarAcademy,
+    defWarAcademy,
   });
 
   const applySettings = (d: SavedSettingsData) => {
@@ -513,6 +556,12 @@ export default function App() {
       if (d.defDaybreakBonuses) setDefDaybreak(d.defDaybreakBonuses);
       setAtkHeroGearSel(d.atkHeroGearSelection ?? atkHeroGearSel);
       setDefHeroGearSel(d.defHeroGearSelection ?? defHeroGearSel);
+      if ((d as any).atkPets) setAtkPets((d as any).atkPets);
+      if ((d as any).defPets) setDefPets((d as any).defPets);
+      if ((d as any).atkBasePets) setAtkBasePets((d as any).atkBasePets);
+      if ((d as any).defBasePets) setDefBasePets((d as any).defBasePets);
+      if ((d as any).atkWarAcademy) setAtkWarAcademy((d as any).atkWarAcademy);
+      if ((d as any).defWarAcademy) setDefWarAcademy((d as any).defWarAcademy);
     } catch {}
   };
 
@@ -616,6 +665,12 @@ export default function App() {
               researchSelection={atkResearchSel}
               heroGearSelection={atkHeroGearSel as any}
               onHeroGearSelectionChange={(v)=> setAtkHeroGearSel(v)}
+              pets={atkPets as any}
+              onChange={setAtkPets as any}
+              basePets={atkBasePets as any}
+              onBasePetsChange={setAtkBasePets as any}
+              warAcademy={atkWarAcademy as any}
+              onWarAcademyChange={setAtkWarAcademy as any}
             />
           </CollapsibleSection>
 
@@ -683,6 +738,12 @@ export default function App() {
               researchSelection={defResearchSel}
               heroGearSelection={defHeroGearSel as any}
               onHeroGearSelectionChange={(v)=> setDefHeroGearSel(v)}
+              pets={defPets as any}
+              onChange={setDefPets as any}
+              basePets={defBasePets as any}
+              onBasePetsChange={setDefBasePets as any}
+              warAcademy={defWarAcademy as any}
+              onWarAcademyChange={setDefWarAcademy as any}
             />
           </CollapsibleSection>
 

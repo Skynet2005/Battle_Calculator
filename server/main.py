@@ -257,6 +257,12 @@ class SimRequest(BaseModel):
     # NEW: Daybreak Island bonuses (percent values)
     attackerDaybreakBonuses: Optional[Dict[str, float]] = None
     defenderDaybreakBonuses: Optional[Dict[str, float]] = None
+    # Pets: base stats + one active skill selection
+    attackerPets: Optional[List[Dict[str, Any]]] = None
+    defenderPets: Optional[List[Dict[str, Any]]] = None
+    # War Academy (percent values similar to research)
+    attackerWarAcademy: Optional[Dict[str, float]] = None
+    defenderWarAcademy: Optional[Dict[str, float]] = None
 
     @field_validator("attackerRatios", "defenderRatios")
     def check_ratios_sum(cls, v):
@@ -392,20 +398,110 @@ def _to_plaintext(s: str) -> str:
 
 def compact_result(full: dict, max_chars: int = int(os.getenv("OPENAI_MAX_CHARS", "20000"))) -> str:
     """
-    Keep only essential parts of the result to manage token usage.
+    Keep only essential parts of the result to manage token usage, but enrich
+    with concise context needed for high‑quality analysis.
     """
+    base = full.get("sample_battle") or full
+
+    def _hero_min(side: str) -> dict:
+        out: dict = {}
+        try:
+            heroes = ((base.get(side) or {}).get("heroes") or {})
+            for cls, h in heroes.items():
+                try:
+                    ew = (h.get("exclusive_weapon") or {})
+                    out[cls] = {
+                        "name": h.get("name"),
+                        "ew_level": ew.get("level"),
+                        "exp_skills": h.get("skills"),
+                        "skill_pcts": h.get("skill_pcts"),
+                        "troop_level": h.get("troop_level"),
+                    }
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return out
+
+    def _timeline_highlights(limit_turns: int = 5, limit_events: int = 3) -> list:
+        hl: list = []
+        try:
+            tl = base.get("timeline") or []
+            # score each turn by combined damage this turn
+            scored: list[tuple[dict, float]] = []
+            for snap in tl:
+                try:
+                    def _sum_side(d: dict | None) -> float:
+                        if not isinstance(d, dict):
+                            return 0.0
+                        return float(sum(v for v in d.values() if isinstance(v, (int, float))))
+                    total = _sum_side(snap.get("attacker")) + _sum_side(snap.get("defender"))
+                    scored.append((snap, total))
+                except Exception:
+                    continue
+            scored.sort(key=lambda x: x[1], reverse=True)
+            for snap, _ in scored[:limit_turns]:
+                events = sorted(
+                    [e for e in (snap.get("events") or []) if isinstance(e, dict)],
+                    key=lambda e: float(e.get("amount", 0.0)),
+                    reverse=True,
+                )[:limit_events]
+                hl.append({
+                    "turn": snap.get("turn"),
+                    "attacker_total": float(sum((snap.get("attacker") or {}).values())) if isinstance(snap.get("attacker"), dict) else 0.0,
+                    "defender_total": float(sum((snap.get("defender") or {}).values())) if isinstance(snap.get("defender"), dict) else 0.0,
+                    "top_events": [
+                        {
+                            "side": e.get("side"),
+                            "skill": e.get("skill"),
+                            "class": e.get("class"),
+                            "amount": e.get("amount"),
+                        }
+                        for e in events
+                    ],
+                })
+        except Exception:
+            pass
+        return hl
+
+    def _top_city_buffs(side: str, k: int = 6) -> dict:
+        out: dict = {}
+        try:
+            cb = ((base.get("city_buffs") or {}).get(side) or {})
+            # take top by absolute value
+            top = sorted(cb.items(), key=lambda kv: abs(float(kv[1])), reverse=True)[:k]
+            out = {k: v for k, v in top}
+        except Exception:
+            pass
+        return out
+
     keep = {
-        "winner": full.get("winner"),
-        "rounds": full.get("rounds"),
+        "winner": base.get("winner"),
+        "rounds": base.get("rounds"),
         "attackerRatios": full.get("attackerRatios") or full.get("attacker_ratios"),
         "defenderRatios": full.get("defenderRatios") or full.get("defender_ratios"),
-        "attacker": (full.get("attacker") or {}).get("summary"),
-        "defender": (full.get("defender") or {}).get("summary"),
-        "proc_stats": full.get("proc_stats"),
-        "power": full.get("power"),
+        "attacker": (base.get("attacker") or {}).get("summary"),
+        "defender": (base.get("defender") or {}).get("summary"),
+        "proc_stats": base.get("proc_stats") or full.get("proc_stats"),
+        "power": base.get("power") or full.get("power"),
         "attacker_win_rate": full.get("attacker_win_rate"),
         "defender_win_rate": full.get("defender_win_rate"),
+        # enriched context
+        "heroes": {
+            "attacker": _hero_min("attacker"),
+            "defender": _hero_min("defender"),
+        },
+        "city_buffs": {
+            "attacker": _top_city_buffs("attacker"),
+            "defender": _top_city_buffs("defender"),
+        },
+        "bonuses": {
+            "attacker": (base.get("bonuses") or {}).get("attacker"),
+            "defender": (base.get("bonuses") or {}).get("defender"),
+        },
+        "timeline_highlights": _timeline_highlights(),
     }
+
     s = json.dumps(keep, separators=(",", ":"))
     if len(s) <= max_chars:
         return s
@@ -418,11 +514,20 @@ def compact_result(full: dict, max_chars: int = int(os.getenv("OPENAI_MAX_CHARS"
             pruned = dict(list(side_ps.items())[:6])
             ps[side] = pruned
         keep2["proc_stats"] = ps
+        # if still too big, drop bonuses first, then shrink timeline highlights
         s2 = json.dumps(keep2, separators=(",", ":"))
         if len(s2) <= max_chars:
             return s2
+        keep3 = keep2.copy()
+        keep3.pop("bonuses", None)
+        tlh = keep3.get("timeline_highlights") or []
+        if isinstance(tlh, list) and len(tlh) > 3:
+            keep3["timeline_highlights"] = tlh[:3]
+        s3 = json.dumps(keep3, separators=(",", ":"))
+        if len(s3) <= max_chars:
+            return s3
         # final hard trim
-        return s2[:max_chars]
+        return s3[:max_chars]
     except Exception:
         return s[:max_chars]
 
@@ -437,6 +542,7 @@ def _mk_city_buffs(
     chief_skin_bonuses: Optional[Dict[str, float]] = None,
     hero_gear: Optional[Dict[str, float]] = None,
     daybreak: Optional[Dict[str, float]] = None,
+    pet_base: Optional[Dict[str, float]] = None,
 ) -> Dict[str, float]:
     """
     Created Logic for review: Merge class-specific city buffs from gear, charms, and research.
@@ -529,6 +635,23 @@ def _mk_city_buffs(
             if v:
                 for t in targets:
                     city[t] = city.get(t, 0.0) + v
+    # Pet base stats (percent values)
+    if pet_base:
+        # troops wide
+        for k, targets in (
+            ("troops_attack_pct", ("infantry_attack","lancer_attack","marksman_attack")),
+            ("troops_defense_pct", ("infantry_defense","lancer_defense","marksman_defense")),
+        ):
+            v = float(pet_base.get(k, 0.0)) / 100.0
+            if v:
+                for t in targets:
+                    city[t] = city.get(t, 0.0) + v
+        # class specific
+        for cls in ("infantry","lancer","marksman"):
+            for stat in ("lethality","health"):
+                pct = float(pet_base.get(f"{cls}_{stat}_pct", 0.0)) / 100.0
+                if pct:
+                    city[f"{cls}_{stat}"] = city.get(f"{cls}_{stat}", 0.0) + pct
     return city
 
 
@@ -754,6 +877,7 @@ def run_simulation(req: SimRequest):
         req.attackerCapacity,
         atk_defs,
         support_heroes=atk_support,
+        pets=(req.attackerPets or {}),
     )
     def_form = RallyFormation(
         def_heroes,
@@ -761,6 +885,7 @@ def run_simulation(req: SimRequest):
         req.defenderCapacity,
         def_defs,
         support_heroes=def_support,
+        pets=(req.defenderPets or {}),
     )
 
     # Merge external buffs from Gear/Charms (convert percent → decimal)
@@ -771,6 +896,8 @@ def run_simulation(req: SimRequest):
         chief_skin_bonuses: Optional[Dict[str, float]] = None,
         hero_gear: Optional[Dict[str, float]] = None,
         daybreak: Optional[Dict[str, float]] = None,
+        pet_base: Optional[Dict[str, float]] = None,
+        war_academy: Optional[Dict[str, float]] = None,
     ) -> Dict[str, float]:
         city: Dict[str, float] = {}
         if gear:
@@ -870,10 +997,45 @@ def run_simulation(req: SimRequest):
                 if v:
                     for t in targets:
                         city[t] = city.get(t, 0.0) + v
+        # Pet base stats (percent values)
+        if pet_base:
+            for k, targets in (
+                ("troops_attack_pct", ("infantry_attack","lancer_attack","marksman_attack")),
+                ("troops_defense_pct", ("infantry_defense","lancer_defense","marksman_defense")),
+            ):
+                v = float(pet_base.get(k, 0.0)) / 100.0
+                if v:
+                    for t in targets:
+                        city[t] = city.get(t, 0.0) + v
+            for cls in ("infantry","lancer","marksman"):
+                for stat in ("lethality","health"):
+                    pct = float(pet_base.get(f"{cls}_{stat}_pct", 0.0)) / 100.0
+                    if pct:
+                        city[f"{cls}_{stat}"] = city.get(f"{cls}_{stat}", 0.0) + pct
         return city
 
-    atk_city_buffs = _mk_city_buffs(req.attackerGear, req.attackerCharms, req.attackerResearch, req.attackerChiefSkinBonuses, req.attackerHeroGear, req.attackerDaybreakBonuses)
-    def_city_buffs = _mk_city_buffs(req.defenderGear, req.defenderCharms, req.defenderResearch, req.defenderChiefSkinBonuses, req.defenderHeroGear, req.defenderDaybreakBonuses)
+    def _merge_pet_bases(pets: Optional[List[Dict[str, Any]]]) -> Dict[str, float]:
+        base: Dict[str, float] = {}
+        for p in pets or []:
+            for k, v in (p.get("base") or {}).items():
+                try:
+                    base[k] = base.get(k, 0.0) + float(v)
+                except Exception:
+                    continue
+        return base
+
+    atk_city_buffs = _mk_city_buffs(
+        req.attackerGear, req.attackerCharms, req.attackerResearch,
+        req.attackerChiefSkinBonuses, req.attackerHeroGear, req.attackerDaybreakBonuses,
+        _merge_pet_bases(req.attackerPets),
+        req.attackerWarAcademy
+    )
+    def_city_buffs = _mk_city_buffs(
+        req.defenderGear, req.defenderCharms, req.defenderResearch,
+        req.defenderChiefSkinBonuses, req.defenderHeroGear, req.defenderDaybreakBonuses,
+        _merge_pet_bases(req.defenderPets),
+        req.defenderWarAcademy
+    )
 
     # Bonus sources (aggregate from all heroes, including rally joiners)
     atk_bonus = BonusSource(atk_form.all_heroes(), city_buffs=atk_city_buffs)
@@ -896,6 +1058,15 @@ def run_simulation(req: SimRequest):
         base["defenderCharms"] = req.defenderCharms or {}
         base["attackerHeroGear"] = req.attackerHeroGear or {}
         base["defenderHeroGear"] = req.defenderHeroGear or {}
+        # Created Logic for review: echo inputs essential for analysis
+        base["attacker_ratios"] = req.attackerRatios or {}
+        base["defender_ratios"] = req.defenderRatios or {}
+        base["attacker_troops"] = req.attackerTroops or {}
+        base["defender_troops"] = req.defenderTroops or {}
+        base["attacker_support_heroes"] = req.attackerSupportHeroes or []
+        base["defender_support_heroes"] = req.defenderSupportHeroes or []
+        base["attacker_capacity"] = req.attackerCapacity
+        base["defender_capacity"] = req.defenderCapacity
         # Created Logic for review: expose merged city buffs actually used (percent units)
         base["city_buffs"] = {
             "attacker": {k: round(v * 100.0, 4) for k, v in (atk_city_buffs or {}).items()},
@@ -985,6 +1156,15 @@ def run_simulation_weighted(req: SimRequest):
         base["defenderCharms"] = req.defenderCharms or {}
         base["attackerHeroGear"] = req.attackerHeroGear or {}
         base["defenderHeroGear"] = req.defenderHeroGear or {}
+        # Created Logic for review: echo inputs essential for analysis
+        base["attacker_ratios"] = req.attackerRatios or {}
+        base["defender_ratios"] = req.defenderRatios or {}
+        base["attacker_troops"] = req.attackerTroops or {}
+        base["defender_troops"] = req.defenderTroops or {}
+        base["attacker_support_heroes"] = req.attackerSupportHeroes or []
+        base["defender_support_heroes"] = req.defenderSupportHeroes or []
+        base["attacker_capacity"] = req.attackerCapacity
+        base["defender_capacity"] = req.defenderCapacity
     except Exception:
         pass
 
@@ -1565,6 +1745,76 @@ def analyze(req: AnalysisRequest):
         if def_top:
             lines.append("Defender skill highlights: " + ", ".join(def_top) + ".")
 
+        # Hero/EW lineup summaries
+        def _hero_lineup(side_block: dict | None) -> str:
+            try:
+                heroes = (side_block or {}).get("heroes") or {}
+                parts: list[str] = []
+                for cls in ("Infantry", "Lancer", "Marksman"):
+                    h = heroes.get(cls) or {}
+                    name = h.get("name") or "?"
+                    ew = (h.get("exclusive_weapon") or {}).get("level")
+                    tl = h.get("troop_level")
+                    tag = f"EW{ew}" if isinstance(ew, (int, float)) else "EW?"
+                    parts.append(f"{cls}: {name} ({tag}{', ' + str(tl) if tl else ''})")
+                return "; ".join(parts)
+            except Exception:
+                return ""
+
+        atk_lineup = _hero_lineup(attacker)
+        def_lineup = _hero_lineup(defender)
+        if atk_lineup:
+            lines.append("Attacker lineup: " + atk_lineup + ".")
+        if def_lineup:
+            lines.append("Defender lineup: " + def_lineup + ".")
+
+        # City buff environment (top 5 by absolute value, percent units)
+        def _top_buffs(side: str, k: int = 5) -> list[str]:
+            try:
+                cb = ((res.get("city_buffs") or {}).get(side) or {})
+                items = sorted(cb.items(), key=lambda kv: abs(float(kv[1])), reverse=True)[:k]
+                return [f"{k}: {float(v):.2f}%" for k, v in items]
+            except Exception:
+                return []
+
+        atk_cb = _top_buffs("attacker")
+        def_cb = _top_buffs("defender")
+        if atk_cb:
+            lines.append("Top attacker city buffs: " + ", ".join(atk_cb) + ".")
+        if def_cb:
+            lines.append("Top defender city buffs: " + ", ".join(def_cb) + ".")
+
+        # Timeline inflection points (top 3 turns by combined damage)
+        try:
+            tl = res.get("timeline") or []
+            scored = []
+            for snap in tl:
+                try:
+                    def _sum(d):
+                        return float(sum((d or {}).values())) if isinstance(d, dict) else 0.0
+                    total = _sum(snap.get("attacker")) + _sum(snap.get("defender"))
+                    scored.append((snap, total))
+                except Exception:
+                    continue
+            scored.sort(key=lambda x: x[1], reverse=True)
+            highlights = []
+            for snap, total in scored[:3]:
+                turn = snap.get("turn")
+                evs = sorted(
+                    [e for e in (snap.get("events") or []) if isinstance(e, dict)],
+                    key=lambda e: float(e.get("amount", 0.0)),
+                    reverse=True,
+                )[:2]
+                if evs:
+                    desc = "; ".join([f"{e.get('side')}-{e.get('class','All')} {e.get('skill')}: {float(e.get('amount',0)):.0f}" for e in evs])
+                else:
+                    desc = f"combined damage {total:.0f}"
+                highlights.append(f"Turn {turn}: {desc}")
+            if highlights:
+                lines.append("Inflection turns: " + " | ".join(highlights) + ".")
+        except Exception:
+            pass
+
         # Ratios
         atk_ratios = (req.result.get("attackerRatios") or req.result.get("attacker_ratios") or {})
         def_ratios = (req.result.get("defenderRatios") or req.result.get("defender_ratios") or {})
@@ -1671,9 +1921,9 @@ def analyze(req: AnalysisRequest):
             "3) Output must be PLAIN TEXT only. Do NOT use Markdown headings or formatting (no ###, no **bold**, no code blocks).\n"
             "4) Be concise, actionable, and specific.\n"
             "5) Structure exactly:\n"
-            "   1) Why did this side win\n"
-            "   2) Key skill/troop factors\n"
-            "   3) Counter-plan for the loser with recommended ratios and hero focus\n"
+            "   1) Why did this side win — reference momentum, kill/loss %, damage power difference, and any decisive turns from timeline_highlights if present.\n"
+            "   2) Key factors — call out top skills by procs, lineup/EW synergies or conflicts (use heroes.attacker/defender), and the stat environment (top city_buffs).\n"
+            "   3) Counter-plan for the loser with recommended ratios and hero focus; include 2–3 concrete tuning steps.\n"
             "6) Use the exact ratios from Facts when referencing what was used.\n"
             "7) If you recommend new ratios, clearly mark them as 'Recommended ratios'."
         )

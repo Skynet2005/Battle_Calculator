@@ -92,6 +92,51 @@ class CombatState:
         # merge always-on buffs
         self._apply_passives()
 
+        # Created Logic for review: apply one active pet skill if provided via special bonuses
+        # The API feeds pet base stats into city buffs. For an active skill (short-term buff),
+        # we model it as a temporary special bonus applied to the appropriate side.
+        try:
+            for side_key, pets in (("atk", getattr(rpt.attacker_formation, "pets", None)), ("def", getattr(rpt.defender_formation, "pets", None))):
+                if not pets:
+                    continue
+                for p in pets:
+                    if not p.get("enabled"):
+                        continue
+                    pet = str(p.get("name", ""))
+                    lvl = max(1, min(10, int(p.get("level", 1))))
+                    bonus_map: dict[str, float] = {}
+                    if pet == "Cave Lion":  # troops attack up
+                        bonus_map["attack"] = {1:2.5,2:3,3:3.5,4:4,5:5,6:6,7:7,8:8,9:9,10:10}[lvl] / 100.0
+                    elif pet == "Mammoth":  # troops defense up
+                        bonus_map["defense"] = {1:2.5,2:3,3:3.5,4:4,5:5,6:6,7:7,8:8,9:9,10:10}[lvl] / 100.0
+                    elif pet == "Frost Gorilla":  # troops health up
+                        bonus_map["health"] = {1:2.5,2:3,3:3.5,4:4,5:5,6:6,7:7,8:8,9:9,10:10}[lvl] / 100.0
+                    elif pet == "Saber Tooth Tiger":  # troops lethality up
+                        bonus_map["lethality"] = {1:2.5,2:3,3:3.5,4:4,5:5,6:6,7:7,8:8,9:9,10:10}[lvl] / 100.0
+                    elif pet == "Titan Roc":  # enemy health down
+                        bonus_map["enemy-health-down"] = {1:1.5,2:2,3:2.5,4:3,5:3.5,6:4,7:5}[min(lvl,7)] / 100.0
+                    elif pet == "Snow Leopard":  # enemy lethality down (approximate)
+                        bonus_map["enemy-lethality-down"] = {1:1.5,2:2,3:2.5,4:3,5:3.5,6:4,7:4.5,8:5}[min(lvl,8)] / 100.0
+
+                    if not bonus_map:
+                        continue
+                    if side_key == "atk":
+                        for k, v in bonus_map.items():
+                            if k.startswith("enemy-"):
+                                key = k.replace("enemy-", "").replace("-down", "")
+                                self.defender_special[key] = self.defender_special.get(key, 0.0) - float(v)
+                            else:
+                                self.attacker_special[k] = self.attacker_special.get(k, 0.0) + float(v)
+                    else:
+                        for k, v in bonus_map.items():
+                            if k.startswith("enemy-"):
+                                key = k.replace("enemy-", "").replace("-down", "")
+                                self.attacker_special[key] = self.attacker_special.get(key, 0.0) - float(v)
+                            else:
+                                self.defender_special[k] = self.defender_special.get(k, 0.0) + float(v)
+        except Exception:
+            pass
+
         # bookkeeping
         self.turn: int = 0
         self.skill_procs: DefaultDict[str, int] = defaultdict(int)

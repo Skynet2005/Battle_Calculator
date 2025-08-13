@@ -24,6 +24,7 @@ class RallyFormation:
         total_capacity: int,
         troop_definitions: Dict[str, dict],
         support_heroes: Iterable[Hero] | None = None,
+        pets: dict | None = None,
     ):
         # Validate heroes: must have one of each type for the main formation
         self.heroes = {h.char_class: h for h in heroes}
@@ -61,6 +62,8 @@ class RallyFormation:
         self.total_capacity = total_capacity
         self.troop_definitions = troop_definitions
         self.troop_groups = self._create_troop_groups()
+        # store pets meta
+        self.pets = pets or []
 
     # ------------------------------------------------------------------ #
     def all_heroes(self) -> List[Hero]:

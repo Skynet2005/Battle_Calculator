@@ -174,6 +174,65 @@ export interface SavedSettingsData {
   // Daybreak Island bonuses per side
   atkDaybreakBonuses?: DaybreakBonuses | null;
   defDaybreakBonuses?: DaybreakBonuses | null;
+  // Pets per side
+  atkPets?: Array<{
+    name: "Cave Lion" | "Mammoth" | "Frost Gorilla" | "Saber Tooth Tiger" | "Titan Roc" | "Snow Leopard";
+    base: {
+      troops_attack_pct: number;
+      troops_defense_pct: number;
+      infantry_lethality_pct: number;
+      infantry_health_pct: number;
+      lancer_lethality_pct: number;
+      lancer_health_pct: number;
+      marksman_lethality_pct: number;
+      marksman_health_pct: number;
+    };
+    level: number;
+    enabled: boolean;
+  }> | null;
+  defPets?: SavedSettingsData["atkPets"];
+  atkBasePets?: Array<{
+    name: string;
+    base: {
+      troops_attack_pct: number;
+      troops_defense_pct: number;
+      infantry_lethality_pct: number;
+      infantry_health_pct: number;
+      lancer_lethality_pct: number;
+      lancer_health_pct: number;
+      marksman_lethality_pct: number;
+      marksman_health_pct: number;
+    };
+  }> | null;
+  defBasePets?: Array<{
+    name: string;
+    base: {
+      troops_attack_pct: number;
+      troops_defense_pct: number;
+      infantry_lethality_pct: number;
+      infantry_health_pct: number;
+      lancer_lethality_pct: number;
+      lancer_health_pct: number;
+      marksman_lethality_pct: number;
+      marksman_health_pct: number;
+    };
+  }> | null;
+  // War Academy per side
+  atkWarAcademy?: {
+    infantry_attack_pct: number;
+    infantry_defense_pct: number;
+    infantry_lethality_pct: number;
+    infantry_health_pct: number;
+    lancer_attack_pct: number;
+    lancer_defense_pct: number;
+    lancer_lethality_pct: number;
+    lancer_health_pct: number;
+    marksman_attack_pct: number;
+    marksman_defense_pct: number;
+    marksman_lethality_pct: number;
+    marksman_health_pct: number;
+  } | null;
+  defWarAcademy?: SavedSettingsData["atkWarAcademy"];
 }
 
 // Research selection snapshot for restoring UI
